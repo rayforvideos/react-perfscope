@@ -35,7 +35,7 @@ export type PaintSignal = {
 
 export type WebVitalSignal = {
   kind: 'web-vital'
-  name: 'LCP' | 'FID' | 'INP' | 'CLS' | 'FCP' | 'TTFB'
+  name: 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB'
   value: number
 }
 
