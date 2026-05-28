@@ -10,6 +10,17 @@ export function createRecorder(): InternalRecorder {
   let recording = false
   let startedAt = 0
   let buffer: Signal[] = []
+  const subscribers = new Set<(s: Signal) => void>()
+
+  function notify(signal: Signal) {
+    for (const cb of subscribers) {
+      try {
+        cb(signal)
+      } catch (err) {
+        console.warn('[react-perfscope] subscriber threw:', err)
+      }
+    }
+  }
 
   return {
     start() {
@@ -35,8 +46,9 @@ export function createRecorder(): InternalRecorder {
     isRecording() {
       return recording
     },
-    onSignal() {
-      return () => {}
+    onSignal(cb) {
+      subscribers.add(cb)
+      return () => subscribers.delete(cb)
     },
     __push(signal: Signal) {
       if (!recording) return
@@ -44,6 +56,7 @@ export function createRecorder(): InternalRecorder {
       if (buffer.length > BUFFER_CAP) {
         buffer.splice(0, buffer.length - BUFFER_CAP)
       }
+      notify(signal)
     },
   }
 }

@@ -103,3 +103,50 @@ describe('Recorder signal buffering', () => {
     expect((result.signals[0] as { at: number }).at).toBe(5)
   })
 })
+
+describe('Recorder onSignal subscription', () => {
+  it('delivers buffered signals to subscribers while recording', () => {
+    const r = createRecorder()
+    const received: Signal[] = []
+    r.onSignal((s) => received.push(s))
+    r.start()
+    r.__push(makeLongTask(1, 60))
+    r.__push(makeLongTask(2, 60))
+    expect(received).toHaveLength(2)
+  })
+
+  it('unsubscribe stops delivery', () => {
+    const r = createRecorder()
+    const received: Signal[] = []
+    const unsubscribe = r.onSignal((s) => received.push(s))
+    r.start()
+    r.__push(makeLongTask(1, 60))
+    unsubscribe()
+    r.__push(makeLongTask(2, 60))
+    expect(received).toHaveLength(1)
+  })
+
+  it('multiple subscribers all receive', () => {
+    const r = createRecorder()
+    const a: Signal[] = []
+    const b: Signal[] = []
+    r.onSignal((s) => a.push(s))
+    r.onSignal((s) => b.push(s))
+    r.start()
+    r.__push(makeLongTask(1, 60))
+    expect(a).toHaveLength(1)
+    expect(b).toHaveLength(1)
+  })
+
+  it('subscriber error does not break other subscribers', () => {
+    const r = createRecorder()
+    const received: Signal[] = []
+    r.onSignal(() => {
+      throw new Error('boom')
+    })
+    r.onSignal((s) => received.push(s))
+    r.start()
+    expect(() => r.__push(makeLongTask(1, 60))).not.toThrow()
+    expect(received).toHaveLength(1)
+  })
+})
