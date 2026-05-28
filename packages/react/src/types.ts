@@ -32,6 +32,8 @@ export interface MinimalFiber {
   alternate: MinimalFiber | null
   elementType?: unknown
   memoizedProps?: unknown
+  /** Set by React when the fiber is inside a Profiler-enabled root. */
+  actualDuration?: number
 }
 
 /**

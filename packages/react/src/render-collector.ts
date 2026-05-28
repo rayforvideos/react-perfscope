@@ -17,12 +17,13 @@ export function createRenderCollector(): Collector {
       if (typeof fiber.type === 'string') return
       const name = fiberComponentName(fiber)
       if (!name) return
+      const duration = typeof fiber.actualDuration === 'number' ? fiber.actualDuration : 0
       emit({
         kind: 'render',
         at,
         component: name,
         reason: 'commit',
-        duration: 0,
+        duration,
       })
     })
   }
