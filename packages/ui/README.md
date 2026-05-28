@@ -21,6 +21,20 @@ const unmount = mount({ recorder })
 // unmount()
 ```
 
+## What's in the panel
+
+Click any row to expand its detail. Each signal kind shows different info:
+
+- **forced-reflow** — call stack (top 8 frames) showing where the layout was forced
+- **layout-shift** — CLS value + each source rect's x/y/w/h
+- **long-task** — start/end/duration, plus call stack if captured
+- **network** — full URL, transfer size, render-blocking flag
+- **paint** — paint name (first-paint / first-contentful-paint)
+- **web-vital** — metric name, value with unit, rating (good/needs/poor) dot per [Google thresholds](https://web.dev/vitals/)
+- **render** — component, reason, duration, timestamp
+
+The `render` tab also offers **Group by component** (collapsing many commits of the same component into one row); the `forced-reflow` tab offers **Group by source** (grouping reflows by their originating call site).
+
 ## API
 
 - `mount({ recorder, position?, host? })` — returns an unmount function.
@@ -62,6 +76,20 @@ const unmount = mount({ recorder })
 // ... 나중에 제거하려면:
 // unmount()
 ```
+
+## 패널 안에 뭐가 있나
+
+신호 row를 클릭하면 디테일이 펼쳐진다. 종류별로 다른 정보를 보여준다:
+
+- **forced-reflow** — 레이아웃을 강제한 호출 스택 (상위 8개 프레임)
+- **layout-shift** — CLS 값 + 각 source rect의 x/y/w/h
+- **long-task** — 시작/끝/duration, 캡처된 스택이 있으면 같이 표시
+- **network** — 전체 URL, transfer size, render-blocking 여부
+- **paint** — paint 이름 (first-paint / first-contentful-paint)
+- **web-vital** — 메트릭 이름, 단위 포함된 값, [Google 기준](https://web.dev/vitals/)에 따른 등급 (good/needs/poor) 색 점
+- **render** — 컴포넌트, reason, duration, 타임스탬프
+
+`render` 탭에는 **Group by component** (같은 컴포넌트의 여러 commit을 한 row로 묶음), `forced-reflow` 탭에는 **Group by source** (같은 call site에서 발생한 reflow끼리 묶음) 옵션도 있다.
 
 ## API
 
