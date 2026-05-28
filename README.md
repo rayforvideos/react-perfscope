@@ -1,5 +1,7 @@
 # react-perfscope
 
+> [한국어 README](./README.ko.md)
+
 Performance debugging tool for React 18+ apps. Records forced reflows, layout shifts, long tasks, paint events, web vitals, network requests, and React component renders during development — and visualises them in a floating UI panel.
 
 ## Quickstart
