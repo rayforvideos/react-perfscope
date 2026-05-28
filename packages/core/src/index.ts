@@ -1,3 +1,4 @@
 export * from './types'
 export { createRecorder } from './recorder'
-export { parseStack } from './sourcemap'
+export { parseStack, resolveFrame } from './sourcemap'
+export type { FetchMap } from './sourcemap'

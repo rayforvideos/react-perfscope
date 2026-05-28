@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseStack } from '../src/sourcemap'
+import { parseStack, resolveFrame } from '../src/sourcemap'
+import type { RawSourceMap } from 'source-map'
 
 describe('parseStack', () => {
   it('parses V8/Chrome stack format', () => {
@@ -44,5 +45,40 @@ handle@http://localhost:3000/src/main.ts:7:5`
     const frames = parseStack(raw)
     expect(frames).toHaveLength(1)
     expect(frames[0]?.fnName).toBe('doWork')
+  })
+})
+
+// Minimal hand-crafted source map: bundled.js (col 4) → src.ts (line 5, col 2)
+const TEST_MAP: RawSourceMap = {
+  version: 3,
+  sources: ['src.ts'],
+  names: ['doWork'],
+  mappings: 'AAIEA',
+  file: 'bundled.js',
+}
+
+describe('resolveFrame', () => {
+  it('resolves a minified frame to original via source map', async () => {
+    const resolved = await resolveFrame(
+      { file: 'http://x/bundled.js', line: 1, col: 4, fnName: 'doWork' },
+      async () => TEST_MAP
+    )
+    expect(resolved.file).toBe('src.ts')
+    expect(resolved.line).toBe(5)
+    expect(resolved.col).toBe(2)
+  })
+
+  it('returns the input unchanged when fetchMap returns null', async () => {
+    const input = { file: 'http://x/bundled.js', line: 1, col: 4 }
+    const resolved = await resolveFrame(input, async () => null)
+    expect(resolved).toEqual(input)
+  })
+
+  it('returns the input unchanged when fetchMap throws', async () => {
+    const input = { file: 'http://x/bundled.js', line: 1, col: 4 }
+    const resolved = await resolveFrame(input, async () => {
+      throw new Error('network fail')
+    })
+    expect(resolved).toEqual(input)
   })
 })
