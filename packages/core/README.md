@@ -12,6 +12,19 @@ Phase 2 complete — `@react-perfscope/core` ships all 6 core collectors (forced
 
 The `render` signal is owned by the upcoming `@react-perfscope/react` package (Phase 3) and not yet emitted.
 
+## Source-map resolution
+
+`createSourceMapResolver()` returns an async resolver that follows `//# sourceMappingURL=` references (including inline `data:` URIs), caches the parsed source map per source URL, and resolves a `StackFrame` to its original source position. The UI uses this to make bundled stack traces readable.
+
+```ts
+import { createSourceMapResolver } from '@react-perfscope/core'
+
+const resolver = createSourceMapResolver()
+const original = await resolver.resolve(parsedFrame)
+```
+
+Falls back to the input frame on any failure (missing source map, network error, etc.).
+
 ## Example
 
 ```ts
@@ -57,6 +70,19 @@ Phase 2 완료 — `@react-perfscope/core`에 6개 collector가 전부 포함됐
 **paint collector 참고:** Phase 2에서는 paint 항목을 크기가 0인 `rect` 플레이스홀더와 함께 내보낸다. 실제 변경 영역 geometry는 Phase 3에서 UI 패키지와 함께 들어온다.
 
 `render` 신호는 곧 나올 `@react-perfscope/react` 패키지(Phase 3)가 담당하고, 아직 내보내지 않는다.
+
+## Source-map 해석
+
+`createSourceMapResolver()`는 `//# sourceMappingURL=` 참조 (inline `data:` URI 포함)를 따라가서 source map을 가져오고, 파싱된 결과를 소스 URL 단위로 캐시한 다음, `StackFrame`을 원본 소스 위치로 해석해주는 async resolver를 반환한다. UI에서 번들된 스택 트레이스를 읽을 수 있게 해주는 데 쓰인다.
+
+```ts
+import { createSourceMapResolver } from '@react-perfscope/core'
+
+const resolver = createSourceMapResolver()
+const original = await resolver.resolve(parsedFrame)
+```
+
+source map이 없거나 네트워크 에러 등 어떤 이유로든 실패하면 원본 frame을 그대로 반환한다.
 
 ## 예제
 
