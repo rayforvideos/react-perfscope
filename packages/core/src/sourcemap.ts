@@ -43,15 +43,24 @@ export async function resolveFrame(
  * Attach a lazy `stack` getter to `target` that parses `raw` on first access
  * and memoizes the result. Use this from collectors to defer parseStack cost
  * until a consumer actually reads `signal.stack`.
+ *
+ * `skipTopFrames` drops the leading N parsed frames — useful for collectors
+ * that wrap a patched function (the wrapper itself shows up as the topmost
+ * frame, but it's noise from the user's perspective).
  */
-export function attachLazyStack(target: object, raw: string | undefined): void {
+export function attachLazyStack(
+  target: object,
+  raw: string | undefined,
+  skipTopFrames = 0
+): void {
   let cached: StackFrame[] | null = null
   Object.defineProperty(target, 'stack', {
     enumerable: true,
     configurable: true,
     get() {
       if (cached === null) {
-        cached = parseStack(raw)
+        const all = parseStack(raw)
+        cached = skipTopFrames > 0 ? all.slice(skipTopFrames) : all
       }
       return cached
     },

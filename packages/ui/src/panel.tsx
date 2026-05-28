@@ -1,6 +1,17 @@
 import { h } from 'preact'
-import { useState, useMemo, useEffect } from 'preact/hooks'
-import type { RecordingResult, Signal, SignalKind } from '@react-perfscope/core'
+import { useState, useMemo, useEffect, useRef } from 'preact/hooks'
+import type {
+  RecordingResult,
+  Signal,
+  SignalKind,
+  ForcedReflowSignal,
+  LayoutShiftSignal,
+  LongTaskSignal,
+  NetworkSignal,
+  PaintSignal,
+  RenderSignal,
+  WebVitalSignal,
+} from '@react-perfscope/core'
 import type { WidgetPosition } from './types'
 import { showOverlay, hideOverlay, hideAllOverlays } from './overlay'
 
@@ -20,6 +31,13 @@ const KIND_ORDER: SignalKind[] = [
   'render',
 ]
 
+const POSITION_STYLES: Record<WidgetPosition, Record<string, string>> = {
+  'bottom-right': { bottom: '16px', right: '16px' },
+  'bottom-left': { bottom: '16px', left: '16px' },
+  'top-right': { top: '16px', right: '16px' },
+  'top-left': { top: '16px', left: '16px' },
+}
+
 function groupByKind(signals: Signal[]): Record<SignalKind, Signal[]> {
   const acc = {
     'forced-reflow': [] as Signal[],
@@ -30,13 +48,73 @@ function groupByKind(signals: Signal[]): Record<SignalKind, Signal[]> {
     'web-vital': [] as Signal[],
     'render': [] as Signal[],
   } as Record<SignalKind, Signal[]>
-  for (const s of signals) {
-    acc[s.kind].push(s)
-  }
+  for (const s of signals) acc[s.kind].push(s)
   return acc
 }
 
-function renderSignal(s: Signal): string {
+type Rating = 'good' | 'needs' | 'poor'
+type Severity = 'low' | 'medium' | 'high'
+
+// Google Web Vitals thresholds (https://web.dev/vitals/).
+function webVitalRating(name: WebVitalSignal['name'], value: number): Rating {
+  const T: Record<WebVitalSignal['name'], [number, number]> = {
+    LCP: [2500, 4000],
+    INP: [200, 500],
+    CLS: [0.1, 0.25],
+    FCP: [1800, 3000],
+    TTFB: [800, 1800],
+  }
+  const [good, needs] = T[name]
+  if (value <= good) return 'good'
+  if (value <= needs) return 'needs'
+  return 'poor'
+}
+
+function longTaskSeverity(durationMs: number): Severity {
+  if (durationMs >= 100) return 'high'
+  if (durationMs >= 50) return 'medium'
+  return 'low'
+}
+
+const RATING_COLOR: Record<Rating, string> = {
+  good: '#34c759',
+  needs: '#ff9500',
+  poor: '#ff3b30',
+}
+
+const SEVERITY_COLOR: Record<Severity, string> = {
+  low: '#666',
+  medium: '#ff9500',
+  high: '#ff3b30',
+}
+
+const WEB_VITAL_UNIT: Record<WebVitalSignal['name'], string> = {
+  LCP: 'ms',
+  INP: 'ms',
+  CLS: '',
+  FCP: 'ms',
+  TTFB: 'ms',
+}
+
+function RatingDot({ rating }: { rating: Rating }) {
+  return (
+    <span
+      data-rating={rating}
+      aria-label={`rating: ${rating}`}
+      style={{
+        display: 'inline-block',
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        background: RATING_COLOR[rating],
+        marginRight: '6px',
+        verticalAlign: 'middle',
+      }}
+    />
+  )
+}
+
+function summary(s: Signal): string {
   switch (s.kind) {
     case 'forced-reflow':
       return `@ ${s.at.toFixed(1)}ms • duration ${s.duration.toFixed(2)}ms`
@@ -45,9 +123,9 @@ function renderSignal(s: Signal): string {
     case 'long-task':
       return `@ ${s.at.toFixed(1)}ms • duration ${s.duration.toFixed(1)}ms`
     case 'paint':
-      return `paint @ ${s.at.toFixed(1)}ms • ${s.cause}`
+      return `@ ${s.at.toFixed(1)}ms • ${s.cause}`
     case 'network':
-      return `${s.url} • ${s.duration.toFixed(0)}ms • ${(s.size / 1024).toFixed(1)}KB${s.blocking ? ' • blocking' : ''}`
+      return `${s.url.length > 60 ? s.url.slice(0, 57) + '...' : s.url} • ${s.duration.toFixed(0)}ms${s.blocking ? ' • blocking' : ''}`
     case 'web-vital':
       return `${s.name}: ${s.value.toFixed(2)}`
     case 'render':
@@ -55,32 +133,261 @@ function renderSignal(s: Signal): string {
   }
 }
 
-const POSITION_STYLES: Record<WidgetPosition, Record<string, string>> = {
-  'bottom-right': { bottom: '16px', right: '16px' },
-  'bottom-left': { bottom: '16px', left: '16px' },
-  'top-right': { top: '16px', right: '16px' },
-  'top-left': { top: '16px', left: '16px' },
+const detailLabelStyle = { color: '#888', marginRight: '6px' } as const
+const detailRowStyle = { padding: '2px 0', display: 'flex', gap: '6px' } as const
+const monoStyle = {
+  fontFamily: 'SF Mono, Menlo, Consolas, monospace',
+  fontSize: '11px',
+} as const
+
+function ForcedReflowDetail({ s }: { s: ForcedReflowSignal }) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      {s.stack.length === 0 ? (
+        <div style={{ color: '#666' }}>No stack captured.</div>
+      ) : (
+        s.stack.slice(0, 8).map((f, i) => (
+          <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
+            {f.fnName ? <span>{f.fnName}</span> : <span style={{ color: '#666' }}>(anonymous)</span>}
+            <span style={{ color: '#888' }}>{f.file}:{f.line}:{f.col}</span>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+function LayoutShiftDetail({ s }: { s: LayoutShiftSignal }) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>value</span><span>{s.value.toFixed(4)}</span></div>
+      {s.sources.length === 0 ? (
+        <div style={{ color: '#666' }}>No source rects.</div>
+      ) : (
+        s.sources.map((r, i) => (
+          <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
+            <span style={{ color: '#888' }}>rect {i + 1}</span>
+            <span>x={r.x.toFixed(0)} y={r.y.toFixed(0)} w={r.width.toFixed(0)} h={r.height.toFixed(0)}</span>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+function LongTaskDetail({ s }: { s: LongTaskSignal }) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>started</span><span>{s.at.toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>ended</span><span>{(s.at + s.duration).toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(2)}ms</span></div>
+      {s.stack.length > 0 && (
+        <div style={{ marginTop: '4px' }}>
+          {s.stack.slice(0, 5).map((f, i) => (
+            <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
+              {f.fnName && <span>{f.fnName}</span>}
+              <span style={{ color: '#888' }}>{f.file}:{f.line}:{f.col}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NetworkDetail({ s }: { s: NetworkSignal }) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={{ ...detailRowStyle, ...monoStyle, wordBreak: 'break-all' as const }}>
+        <span>{s.url}</span>
+      </div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>started</span><span>{s.startedAt.toFixed(0)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(0)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>size</span><span>{(s.size / 1024).toFixed(2)}KB ({s.size} bytes)</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>render-blocking</span><span>{s.blocking ? 'yes' : 'no'}</span></div>
+    </div>
+  )
+}
+
+function PaintDetail({ s }: { s: PaintSignal }) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>at</span><span>{s.at.toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>cause</span><span>{s.cause}</span></div>
+    </div>
+  )
+}
+
+function WebVitalDetail({ s }: { s: WebVitalSignal }) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>metric</span><span>{s.name}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>value</span><span>{s.value.toFixed(2)}</span></div>
+    </div>
+  )
+}
+
+function RenderDetail({ s }: { s: RenderSignal }) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>component</span><span>{s.component}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>reason</span><span>{s.reason}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(3)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>at</span><span>{s.at.toFixed(2)}ms</span></div>
+    </div>
+  )
+}
+
+function SignalDetail({ s }: { s: Signal }) {
+  switch (s.kind) {
+    case 'forced-reflow': return <ForcedReflowDetail s={s} />
+    case 'layout-shift': return <LayoutShiftDetail s={s} />
+    case 'long-task': return <LongTaskDetail s={s} />
+    case 'network': return <NetworkDetail s={s} />
+    case 'paint': return <PaintDetail s={s} />
+    case 'web-vital': return <WebVitalDetail s={s} />
+    case 'render': return <RenderDetail s={s} />
+  }
+}
+
+function SummaryLine({ signal }: { signal: Signal }) {
+  if (signal.kind === 'web-vital') {
+    const rating = webVitalRating(signal.name, signal.value)
+    const unit = WEB_VITAL_UNIT[signal.name]
+    return (
+      <span>
+        <RatingDot rating={rating} />
+        <strong>{signal.name}</strong>: {signal.value.toFixed(2)}{unit}
+      </span>
+    )
+  }
+  if (signal.kind === 'long-task') {
+    const sev = longTaskSeverity(signal.duration)
+    return (
+      <span>
+        @ {signal.at.toFixed(1)}ms • duration{' '}
+        <span data-severity={sev} style={{ color: SEVERITY_COLOR[sev] }}>
+          {signal.duration.toFixed(1)}ms
+        </span>
+      </span>
+    )
+  }
+  return <span>{summary(signal)}</span>
+}
+
+type GroupMode = 'chronological' | 'component' | 'source'
+
+function tabSupportsGrouping(kind: SignalKind): boolean {
+  return kind === 'render' || kind === 'forced-reflow'
+}
+
+interface SignalGroup {
+  label: string
+  count: number
+  signals: Signal[]
+}
+
+function groupSignals(signals: Signal[], mode: GroupMode, kind: SignalKind): SignalGroup[] {
+  if (mode === 'chronological') {
+    return signals.map((s, i) => ({ label: `#${i + 1}`, count: 1, signals: [s] }))
+  }
+  if (mode === 'component' && kind === 'render') {
+    const byName = new Map<string, Signal[]>()
+    for (const s of signals) {
+      if (s.kind !== 'render') continue
+      const k = s.component
+      if (!byName.has(k)) byName.set(k, [])
+      byName.get(k)!.push(s)
+    }
+    return Array.from(byName.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([label, list]) => ({ label, count: list.length, signals: list }))
+  }
+  if (mode === 'source' && kind === 'forced-reflow') {
+    const bySource = new Map<string, Signal[]>()
+    for (const s of signals) {
+      if (s.kind !== 'forced-reflow') continue
+      const top = s.stack[0]
+      const k = top ? `${top.file}:${top.line}:${top.col}` : '(no stack)'
+      if (!bySource.has(k)) bySource.set(k, [])
+      bySource.get(k)!.push(s)
+    }
+    return Array.from(bySource.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([label, list]) => ({ label, count: list.length, signals: list }))
+  }
+  return signals.map((s, i) => ({ label: `#${i + 1}`, count: 1, signals: [s] }))
+}
+
+interface SignalRowProps {
+  signal: Signal
+  expanded: boolean
+  onToggleExpand: () => void
+  onHoverGeometry: (rects: DOMRect[] | null) => void
+}
+
+function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry }: SignalRowProps) {
+  const hasGeometry = signal.kind === 'layout-shift' && signal.sources.length > 0
+  return (
+    <li
+      aria-expanded={expanded}
+      onClick={onToggleExpand}
+      onMouseEnter={() => {
+        if (hasGeometry && signal.kind === 'layout-shift') onHoverGeometry(signal.sources)
+      }}
+      onMouseLeave={() => {
+        if (hasGeometry) onHoverGeometry(null)
+      }}
+      style={{
+        padding: '6px 8px',
+        borderTop: '1px solid #1a1a1a',
+        fontFamily: 'SF Mono, Menlo, Consolas, monospace',
+        fontSize: '11px',
+        cursor: 'pointer',
+        userSelect: 'none' as const,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ color: '#888', width: '10px' }}>{expanded ? '▼' : '▶'}</span>
+        <SummaryLine signal={signal} />
+      </div>
+      {expanded && (
+        <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #2a2a2a' }}>
+          <SignalDetail s={signal} />
+        </div>
+      )}
+    </li>
+  )
 }
 
 export function Panel(props: PanelProps) {
   const { result, onClose, position = 'bottom-right' } = props
   const grouped = useMemo(() => groupByKind(result.signals), [result.signals])
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
-  const [activeKind, setActiveKind] = useState<SignalKind | null>(
-    kindsPresent[0] ?? null
-  )
+  const [activeKind, setActiveKind] = useState<SignalKind | null>(kindsPresent[0] ?? null)
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const [groupMode, setGroupMode] = useState<Partial<Record<SignalKind, GroupMode>>>({})
+  const activeOverlayCount = useRef(0)
 
-  useEffect(() => {
-    return () => {
-      hideAllOverlays()
+  useEffect(() => () => hideAllOverlays(), [])
+
+  function handleHover(rects: DOMRect[] | null) {
+    if (!rects) {
+      for (let i = 0; i < activeOverlayCount.current; i++) {
+        hideOverlay(`signal-${i}`)
+      }
+      activeOverlayCount.current = 0
+      return
     }
-  }, [])
+    rects.forEach((r, i) => showOverlay(`signal-${i}`, r))
+    activeOverlayCount.current = rects.length
+  }
 
   const panelStyle = {
     position: 'fixed' as const,
     ...POSITION_STYLES[position],
-    width: '420px',
-    maxHeight: '60vh',
+    width: '460px',
+    maxHeight: '70vh',
     background: '#0d0d0d',
     color: '#e6e6e6',
     border: '1px solid #2a2a2a',
@@ -97,27 +404,10 @@ export function Panel(props: PanelProps) {
 
   return (
     <div role="region" aria-label="react-perfscope panel" style={panelStyle}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '8px',
-        }}
-      >
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <strong>react-perfscope</strong>
-        <button
-          type="button"
-          aria-label="Close panel"
-          onClick={onClose}
-          style={{
-            background: 'transparent',
-            color: '#e6e6e6',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '16px',
-          }}
-        >
+        <button type="button" aria-label="Close panel" onClick={onClose}
+          style={{ background: 'transparent', color: '#e6e6e6', border: 'none', cursor: 'pointer', fontSize: '16px' }}>
           ×
         </button>
       </header>
@@ -128,19 +418,12 @@ export function Panel(props: PanelProps) {
 
       {kindsPresent.length > 0 && (
         <>
-          <nav
-            style={{
-              display: 'flex',
-              gap: '4px',
-              flexWrap: 'wrap',
-              marginBottom: '8px',
-            }}
-          >
+          <nav style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
             {kindsPresent.map((kind) => (
               <button
                 key={kind}
                 type="button"
-                onClick={() => setActiveKind(kind)}
+                onClick={() => { setActiveKind(kind); setExpandedKey(null) }}
                 style={{
                   background: activeKind === kind ? '#2a2a2a' : '#1a1a1a',
                   color: '#e6e6e6',
@@ -156,48 +439,78 @@ export function Panel(props: PanelProps) {
             ))}
           </nav>
 
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: 0,
-              padding: 0,
-              overflowY: 'auto',
-              flexGrow: 1,
-            }}
-          >
-            {activeKind &&
-              grouped[activeKind].map((s, i) => {
-                const overlayId = `signal-${activeKind}-${i}`
-                const hasGeometry = s.kind === 'layout-shift' && s.sources.length > 0
+          {activeKind && tabSupportsGrouping(activeKind) && (
+            <label
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontSize: '11px', color: '#888' }}
+            >
+              Group by
+              <select
+                aria-label="Group by"
+                value={groupMode[activeKind] ?? 'chronological'}
+                onChange={(e) => {
+                  const v = (e.target as HTMLSelectElement).value as GroupMode
+                  setGroupMode({ ...groupMode, [activeKind]: v })
+                  setExpandedKey(null)
+                }}
+                style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
+              >
+                <option value="chronological">chronological</option>
+                {activeKind === 'render' && <option value="component">component</option>}
+                {activeKind === 'forced-reflow' && <option value="source">source</option>}
+              </select>
+            </label>
+          )}
+
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1 }}>
+            {activeKind && groupSignals(grouped[activeKind], groupMode[activeKind] ?? 'chronological', activeKind).map((g, gi) => {
+              const currentMode = groupMode[activeKind] ?? 'chronological'
+              if (currentMode === 'chronological') {
+                const key = `${activeKind}-${gi}`
                 return (
-                  <li
-                    key={i}
-                    onMouseEnter={() => {
-                      if (hasGeometry && s.kind === 'layout-shift') {
-                        for (let j = 0; j < s.sources.length; j++) {
-                          showOverlay(`${overlayId}-${j}`, s.sources[j]!)
-                        }
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      if (hasGeometry && s.kind === 'layout-shift') {
-                        for (let j = 0; j < s.sources.length; j++) {
-                          hideOverlay(`${overlayId}-${j}`)
-                        }
-                      }
-                    }}
-                    style={{
-                      padding: '6px 8px',
-                      borderTop: '1px solid #1a1a1a',
-                      fontFamily: 'SF Mono, Menlo, Consolas, monospace',
-                      fontSize: '11px',
-                      cursor: hasGeometry ? 'pointer' : 'default',
-                    }}
-                  >
-                    {renderSignal(s)}
-                  </li>
+                  <SignalRow
+                    key={key}
+                    signal={g.signals[0]!}
+                    expanded={expandedKey === key}
+                    onToggleExpand={() => setExpandedKey(expandedKey === key ? null : key)}
+                    onHoverGeometry={handleHover}
+                  />
                 )
-              })}
+              }
+              const key = `${activeKind}-group-${gi}`
+              const isOpen = expandedKey === key
+              return (
+                <li
+                  key={key}
+                  aria-expanded={isOpen}
+                  onClick={() => setExpandedKey(isOpen ? null : key)}
+                  style={{
+                    padding: '6px 8px',
+                    borderTop: '1px solid #1a1a1a',
+                    fontFamily: 'SF Mono, Menlo, Consolas, monospace',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    userSelect: 'none' as const,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: '#888', width: '10px' }}>{isOpen ? '▼' : '▶'}</span>
+                    <span><strong>{g.label}</strong> ×{g.count}</span>
+                  </div>
+                  {isOpen && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #2a2a2a', paddingLeft: '8px' }}>
+                      {g.signals.slice(0, 20).map((s, si) => (
+                        <div key={si} style={{ padding: '2px 0' }}>
+                          <SummaryLine signal={s} />
+                        </div>
+                      ))}
+                      {g.signals.length > 20 && (
+                        <div style={{ color: '#888', marginTop: '4px' }}>+ {g.signals.length - 20} more</div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </>
       )}

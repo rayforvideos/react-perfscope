@@ -53,7 +53,7 @@ export function createForcedReflowCollector(): Collector {
           const value = originalGet.call(this)
           const duration = performance.now() - at
           const signal = { kind: 'forced-reflow' as const, at, duration } as unknown as Signal
-          attachLazyStack(signal, rawStack)
+          attachLazyStack(signal, rawStack, 1)
           emit(signal)
           return value
         }
@@ -82,7 +82,7 @@ export function createForcedReflowCollector(): Collector {
           const value = original.apply(this, args)
           const duration = performance.now() - at
           const signal = { kind: 'forced-reflow' as const, at, duration } as unknown as Signal
-          attachLazyStack(signal, rawStack)
+          attachLazyStack(signal, rawStack, 1)
           emit(signal)
           return value
         }
