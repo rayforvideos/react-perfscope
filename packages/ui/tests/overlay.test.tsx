@@ -25,10 +25,17 @@ describe('overlay primitive', () => {
     expect((els[0] as HTMLElement).style.left).toBe('100px')
   })
 
-  it('hideOverlay removes only the named overlay', () => {
+  it('hideOverlay starts a fade and removes the named overlay after the transition', async () => {
     showOverlay('a', new DOMRect(0, 0, 10, 10))
     showOverlay('b', new DOMRect(0, 0, 10, 10))
     hideOverlay('a')
+    // Immediately after hide: a is still in DOM but opacity is 0
+    const a = document.querySelector('[data-perfscope-overlay="a"]') as HTMLElement | null
+    expect(a).toBeTruthy()
+    expect(a!.style.opacity).toBe('0')
+    expect(document.querySelector('[data-perfscope-overlay="b"]')).toBeTruthy()
+    // After the transition window, a is removed
+    await new Promise((r) => setTimeout(r, 120))
     expect(document.querySelector('[data-perfscope-overlay="a"]')).toBeNull()
     expect(document.querySelector('[data-perfscope-overlay="b"]')).toBeTruthy()
   })

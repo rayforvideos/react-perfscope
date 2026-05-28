@@ -39,6 +39,8 @@ export function Widget(props: WidgetProps) {
     >
       <button
         type="button"
+        aria-pressed={recording}
+        aria-label={recording ? 'Stop recording' : 'Start recording'}
         onClick={onToggle}
         style={{
           background: '#1a1a1a',
@@ -63,7 +65,9 @@ export function Widget(props: WidgetProps) {
             display: 'inline-block',
           }}
         />
-        {recording ? formatElapsed(elapsedMs) : 'rec'}
+        <span aria-live="polite">
+          {recording ? formatElapsed(elapsedMs) : 'rec'}
+        </span>
       </button>
     </div>
   )
