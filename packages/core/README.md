@@ -4,24 +4,34 @@ Core recording engine for `react-perfscope`. Provides a `Recorder` and pluggable
 
 ## Status
 
-Phase 1 — minimal implementation. Forced-reflow and long-tasks collectors only.
+Phase 2 complete — `@react-perfscope/core` ships all 6 core collectors (forced-reflow, long-tasks, layout-shift, network, web-vitals, paint) with deferred stack parsing and synchronous dirty tracking on forced-reflow.
 
-**Phase 2 update:** The forced-reflow collector now uses synchronous dirty tracking via `MutationObserver.takeRecords()` — it only emits when a DOM mutation occurred since the last layout read. Stack parsing is deferred until `signal.stack` is accessed, keeping per-signal cost low.
+**Forced-reflow note:** Synchronous dirty tracking via `MutationObserver.takeRecords()` ensures the collector only emits when DOM mutated since the last layout read. Stack parsing is deferred until `signal.stack` is accessed.
 
-**Paint collector caveat:** Phase 2 emits paint entries with a zero-sized `rect` placeholder. Real mutated-region geometry arrives with the UI package in Phase 3, which will pair paint events with MutationObserver records to compute affected regions.
+**Paint collector note:** Phase 2 emits paint entries with a zero-sized `rect` placeholder. Real mutated-region geometry arrives with the UI package in Phase 3.
+
+The `render` signal is owned by the upcoming `@react-perfscope/react` package (Phase 3) and not yet emitted.
 
 ## Example
 
 ```ts
 import {
   createRecorder,
-  createLongTasksCollector,
   createForcedReflowCollector,
+  createLongTasksCollector,
+  createLayoutShiftCollector,
+  createNetworkCollector,
+  createWebVitalsCollector,
+  createPaintCollector,
 } from '@react-perfscope/core'
 
 const recorder = createRecorder()
-recorder.use(createLongTasksCollector())
 recorder.use(createForcedReflowCollector())
+recorder.use(createLongTasksCollector())
+recorder.use(createLayoutShiftCollector())
+recorder.use(createNetworkCollector())
+recorder.use(createWebVitalsCollector())
+recorder.use(createPaintCollector())
 
 recorder.start()
 // ... user interaction ...
