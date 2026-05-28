@@ -5,7 +5,7 @@ export * from './types'
 export { createRecorder } from './recorder'
 
 // Sourcemap utilities
-export { parseStack, resolveFrame } from './sourcemap'
+export { parseStack, resolveFrame, attachLazyStack } from './sourcemap'
 export type { FetchMap } from './sourcemap'
 
 // Collectors
