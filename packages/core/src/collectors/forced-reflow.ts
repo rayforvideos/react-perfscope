@@ -1,5 +1,5 @@
 import type { Collector, Signal } from '../types'
-import { parseStack } from '../sourcemap'
+import { attachLazyStack } from '../sourcemap'
 
 const LAYOUT_GETTERS = [
   'offsetWidth',
@@ -36,10 +36,12 @@ export function createForcedReflowCollector(): Collector {
       get(this: unknown) {
         if (active) {
           const at = performance.now()
-          const stack = parseStack(new Error().stack)
+          const rawStack = new Error().stack
           const value = originalGet.call(this)
           const duration = performance.now() - at
-          emit({ kind: 'forced-reflow', at, duration, stack })
+          const signal = { kind: 'forced-reflow' as const, at, duration } as unknown as Signal
+          attachLazyStack(signal, rawStack)
+          emit(signal)
           return value
         }
         return originalGet.call(this)
@@ -60,10 +62,12 @@ export function createForcedReflowCollector(): Collector {
       value: function patchedLayoutMethod(this: unknown, ...args: unknown[]) {
         if (active) {
           const at = performance.now()
-          const stack = parseStack(new Error().stack)
+          const rawStack = new Error().stack
           const value = original.apply(this, args)
           const duration = performance.now() - at
-          emit({ kind: 'forced-reflow', at, duration, stack })
+          const signal = { kind: 'forced-reflow' as const, at, duration } as unknown as Signal
+          attachLazyStack(signal, rawStack)
+          emit(signal)
           return value
         }
         return original.apply(this, args)

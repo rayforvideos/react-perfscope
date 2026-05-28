@@ -94,3 +94,26 @@ describe('forced-reflow collector', () => {
     }).not.toThrow()
   })
 })
+
+describe('forced-reflow collector lazy stack', () => {
+  it('emits signals whose `stack` is implemented as a lazy getter', () => {
+    const collector = createForcedReflowCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    try {
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+      void div.offsetWidth
+      expect(got.length).toBeGreaterThanOrEqual(1)
+      const signal = got[0]!
+      const desc = Object.getOwnPropertyDescriptor(signal, 'stack')
+      expect(desc).toBeDefined()
+      expect(typeof desc!.get).toBe('function')
+      expect((desc as { value?: unknown }).value).toBeUndefined()
+      // Reading still works
+      expect(Array.isArray((signal as ForcedReflowSignal).stack)).toBe(true)
+    } finally {
+      collector.deactivate()
+    }
+  })
+})
