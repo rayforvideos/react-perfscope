@@ -1,6 +1,12 @@
 import type { Recorder, RecordingResult, Signal } from './types'
 
-export function createRecorder(): Recorder {
+const BUFFER_CAP = 10_000
+
+export interface InternalRecorder extends Recorder {
+  __push: (signal: Signal) => void
+}
+
+export function createRecorder(): InternalRecorder {
   let recording = false
   let startedAt = 0
   let buffer: Signal[] = []
@@ -31,6 +37,13 @@ export function createRecorder(): Recorder {
     },
     onSignal() {
       return () => {}
+    },
+    __push(signal: Signal) {
+      if (!recording) return
+      buffer.push(signal)
+      if (buffer.length > BUFFER_CAP) {
+        buffer.splice(0, buffer.length - BUFFER_CAP)
+      }
     },
   }
 }
