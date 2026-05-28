@@ -1,5 +1,5 @@
 import { createRecorder } from '@react-perfscope/core'
-import { createRenderCollector } from '@react-perfscope/react'
+import { createRenderCollector, installDevToolsHook } from '@react-perfscope/react'
 import { mount } from '@react-perfscope/ui'
 
 /**
@@ -21,6 +21,14 @@ function bootstrap(): void {
   if (typeof document === 'undefined') return
 
   try {
+    // Install the React DevTools hook SYNCHRONOUSLY before react-dom is
+    // evaluated. react-dom captures `__REACT_DEVTOOLS_GLOBAL_HOOK__` exactly
+    // once at module-load time, so the hook must exist by the time the user
+    // bundle imports react-dom. A no-op listener is enough to register the
+    // hook — when the render collector later activates, it adds the real
+    // commit handler to the same global hook.
+    installDevToolsHook(() => {})
+
     const recorder = createRecorder()
     recorder.use(createRenderCollector())
     mount({ recorder })

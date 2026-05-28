@@ -34,6 +34,35 @@ function ensureHookInstalled(): void {
     let _nextRendererId = 1
     hook.inject = () => _nextRendererId++
   }
+  // Additional fields that React Refresh (@vitejs/plugin-react) accesses on
+  // the hook. Without these it throws "Cannot read properties of undefined
+  // (reading 'forEach')" at injectIntoGlobalHook. We default each to a safe
+  // empty/noop value; if the real React DevTools extension installs later
+  // it will overwrite these.
+  if (!hook.renderers) {
+    ;(hook as Record<string, unknown>).renderers = new Map()
+  }
+  if (typeof (hook as Record<string, unknown>)['on'] !== 'function') {
+    ;(hook as Record<string, unknown>)['on'] = () => {}
+  }
+  if (typeof (hook as Record<string, unknown>)['off'] !== 'function') {
+    ;(hook as Record<string, unknown>)['off'] = () => {}
+  }
+  if (typeof (hook as Record<string, unknown>)['emit'] !== 'function') {
+    ;(hook as Record<string, unknown>)['emit'] = () => {}
+  }
+  if (typeof (hook as Record<string, unknown>)['sub'] !== 'function') {
+    ;(hook as Record<string, unknown>)['sub'] = () => () => {}
+  }
+  if (typeof (hook as Record<string, unknown>)['checkDCE'] !== 'function') {
+    ;(hook as Record<string, unknown>)['checkDCE'] = () => {}
+  }
+  if (typeof (hook as Record<string, unknown>)['onCommitFiberUnmount'] !== 'function') {
+    ;(hook as Record<string, unknown>)['onCommitFiberUnmount'] = () => {}
+  }
+  if (typeof (hook as Record<string, unknown>)['onPostCommitFiberRoot'] !== 'function') {
+    ;(hook as Record<string, unknown>)['onPostCommitFiberRoot'] = () => {}
+  }
   hook.onCommitFiberRoot = (rendererId, root, priorityLevel) => {
     if (chainedOriginal) {
       try {

@@ -37,11 +37,23 @@ describe('reactPerfscope() vite plugin', () => {
       (t) =>
         t.tag === 'script' &&
         t.attrs?.['type'] === 'module' &&
-        /react-perfscope\/auto/.test(t.children ?? '')
+        typeof t.attrs?.['src'] === 'string' &&
+        t.attrs['src'].includes('react-perfscope-bootstrap')
     )
     expect(script).toBeTruthy()
     // Must be prepended so it runs before any author scripts that load react-dom
     expect(script?.injectTo).toBe('head-prepend')
+  })
+
+  it('serves the virtual bootstrap module that imports react-perfscope/auto', () => {
+    const plugin = reactPerfscope()
+    const src = '/@react-perfscope-bootstrap.js'
+    const resolve = plugin.resolveId as (id: string) => string | null | undefined
+    const resolved = resolve(src)
+    expect(resolved).toBeTruthy()
+    const load = plugin.load as (id: string) => string | null | undefined
+    const body = load(resolved as string)
+    expect(body).toMatch(/import 'react-perfscope\/auto'/)
   })
 
   it('accepts options object (currently unused; reserves shape for Phase 6)', () => {
