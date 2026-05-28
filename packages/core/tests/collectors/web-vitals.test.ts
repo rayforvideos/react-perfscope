@@ -67,4 +67,33 @@ describe('web-vitals collector', () => {
     subscribers.LCP!({ name: 'LCP', value: 2400 })
     expect(got).toHaveLength(0)
   })
+
+  it('does not re-subscribe across deactivate → activate cycles', () => {
+    const collector = createWebVitalsCollector()
+
+    // First activation registers subscribers
+    collector.activate(() => {})
+    expect(subscribers.LCP).toBeDefined()
+    const lcpBefore = subscribers.LCP
+
+    // Second activation should NOT re-register (no new onLCP call)
+    collector.deactivate()
+    collector.activate(() => {})
+    const lcpAfter = subscribers.LCP
+    expect(lcpAfter).toBe(lcpBefore) // same handler reference (no new subscription)
+  })
+
+  it('routes signals to the most recent emit after re-activate', () => {
+    const collector = createWebVitalsCollector()
+    const firstReceived: Signal[] = []
+    const secondReceived: Signal[] = []
+
+    collector.activate((s) => firstReceived.push(s))
+    collector.deactivate()
+    collector.activate((s) => secondReceived.push(s))
+
+    subscribers.LCP!({ name: 'LCP', value: 1234 })
+    expect(firstReceived).toHaveLength(0)
+    expect(secondReceived).toHaveLength(1)
+  })
 })
