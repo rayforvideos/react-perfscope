@@ -11,6 +11,7 @@ import type {
   PaintSignal,
   RenderSignal,
   WebVitalSignal,
+  StackFrame,
 } from '@react-perfscope/core'
 import type { WidgetPosition } from './types'
 import { showOverlay, hideOverlay, hideAllOverlays } from './overlay'
@@ -19,6 +20,7 @@ export interface PanelProps {
   result: RecordingResult
   position?: WidgetPosition
   onClose: () => void
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
 }
 
 const KIND_ORDER: SignalKind[] = [
@@ -140,23 +142,6 @@ const monoStyle = {
   fontSize: '11px',
 } as const
 
-function ForcedReflowDetail({ s }: { s: ForcedReflowSignal }) {
-  return (
-    <div style={{ paddingLeft: '12px' }}>
-      {s.stack.length === 0 ? (
-        <div style={{ color: '#666' }}>No stack captured.</div>
-      ) : (
-        s.stack.slice(0, 8).map((f, i) => (
-          <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
-            {f.fnName ? <span>{f.fnName}</span> : <span style={{ color: '#666' }}>(anonymous)</span>}
-            <span style={{ color: '#888' }}>{f.file}:{f.line}:{f.col}</span>
-          </div>
-        ))
-      )}
-    </div>
-  )
-}
-
 function LayoutShiftDetail({ s }: { s: LayoutShiftSignal }) {
   return (
     <div style={{ paddingLeft: '12px' }}>
@@ -170,26 +155,6 @@ function LayoutShiftDetail({ s }: { s: LayoutShiftSignal }) {
             <span>x={r.x.toFixed(0)} y={r.y.toFixed(0)} w={r.width.toFixed(0)} h={r.height.toFixed(0)}</span>
           </div>
         ))
-      )}
-    </div>
-  )
-}
-
-function LongTaskDetail({ s }: { s: LongTaskSignal }) {
-  return (
-    <div style={{ paddingLeft: '12px' }}>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>started</span><span>{s.at.toFixed(2)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>ended</span><span>{(s.at + s.duration).toFixed(2)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(2)}ms</span></div>
-      {s.stack.length > 0 && (
-        <div style={{ marginTop: '4px' }}>
-          {s.stack.slice(0, 5).map((f, i) => (
-            <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
-              {f.fnName && <span>{f.fnName}</span>}
-              <span style={{ color: '#888' }}>{f.file}:{f.line}:{f.col}</span>
-            </div>
-          ))}
-        </div>
       )}
     </div>
   )
@@ -238,11 +203,103 @@ function RenderDetail({ s }: { s: RenderSignal }) {
   )
 }
 
-function SignalDetail({ s }: { s: Signal }) {
+function StackFrames({
+  raw,
+  resolveFrame,
+  limit = 8,
+}: {
+  raw: StackFrame[]
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+  limit?: number
+}) {
+  const original = raw.slice(0, limit)
+  const [frames, setFrames] = useState<StackFrame[]>(original)
+  const [resolving, setResolving] = useState(false)
+
+  useEffect(() => {
+    if (!resolveFrame || original.length === 0) return
+    let cancelled = false
+    setResolving(true)
+    Promise.all(original.map((f) => resolveFrame(f)))
+      .then((resolved) => {
+        if (!cancelled) setFrames(resolved)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setResolving(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [raw])
+
+  return (
+    <>
+      {resolving && (
+        <div style={{ color: '#666', fontSize: '10px', marginBottom: '4px' }}>
+          resolving source maps…
+        </div>
+      )}
+      {frames.length === 0 ? (
+        <div style={{ color: '#666' }}>No stack captured.</div>
+      ) : (
+        frames.map((f, i) => (
+          <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
+            {f.fnName ? <span>{f.fnName}</span> : <span style={{ color: '#666' }}>(anonymous)</span>}
+            <span style={{ color: '#888' }}>{f.file}:{f.line}:{f.col}</span>
+          </div>
+        ))
+      )}
+    </>
+  )
+}
+
+function ForcedReflowDetail({
+  s,
+  resolveFrame,
+}: {
+  s: ForcedReflowSignal
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+}) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <StackFrames raw={s.stack} resolveFrame={resolveFrame} />
+    </div>
+  )
+}
+
+function LongTaskDetail({
+  s,
+  resolveFrame,
+}: {
+  s: LongTaskSignal
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+}) {
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>started</span><span>{s.at.toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>ended</span><span>{(s.at + s.duration).toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(2)}ms</span></div>
+      {s.stack.length > 0 && (
+        <div style={{ marginTop: '4px' }}>
+          <StackFrames raw={s.stack} resolveFrame={resolveFrame} limit={5} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SignalDetail({
+  s,
+  resolveFrame,
+}: {
+  s: Signal
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+}) {
   switch (s.kind) {
-    case 'forced-reflow': return <ForcedReflowDetail s={s} />
+    case 'forced-reflow': return <ForcedReflowDetail s={s} resolveFrame={resolveFrame} />
     case 'layout-shift': return <LayoutShiftDetail s={s} />
-    case 'long-task': return <LongTaskDetail s={s} />
+    case 'long-task': return <LongTaskDetail s={s} resolveFrame={resolveFrame} />
     case 'network': return <NetworkDetail s={s} />
     case 'paint': return <PaintDetail s={s} />
     case 'web-vital': return <WebVitalDetail s={s} />
@@ -287,6 +344,33 @@ interface SignalGroup {
   signals: Signal[]
 }
 
+function downloadRecording(result: RecordingResult): void {
+  // Materialise lazy `stack` getters on forced-reflow and long-task signals
+  // so JSON.stringify includes the parsed frames.
+  const exportable = {
+    ...result,
+    signals: result.signals.map((s) => {
+      if (s.kind === 'forced-reflow' || s.kind === 'long-task') {
+        return { ...s, stack: s.stack }
+      }
+      return s
+    }),
+  }
+  const json = JSON.stringify(exportable, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `react-perfscope-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+}
+
 function groupSignals(signals: Signal[], mode: GroupMode, kind: SignalKind): SignalGroup[] {
   if (mode === 'chronological') {
     return signals.map((s, i) => ({ label: `#${i + 1}`, count: 1, signals: [s] }))
@@ -324,9 +408,10 @@ interface SignalRowProps {
   expanded: boolean
   onToggleExpand: () => void
   onHoverGeometry: (rects: DOMRect[] | null) => void
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
 }
 
-function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry }: SignalRowProps) {
+function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveFrame }: SignalRowProps) {
   const hasGeometry = signal.kind === 'layout-shift' && signal.sources.length > 0
   return (
     <li
@@ -353,7 +438,7 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry }: Signal
       </div>
       {expanded && (
         <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #2a2a2a' }}>
-          <SignalDetail s={signal} />
+          <SignalDetail s={signal} resolveFrame={resolveFrame} />
         </div>
       )}
     </li>
@@ -361,7 +446,7 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry }: Signal
 }
 
 export function Panel(props: PanelProps) {
-  const { result, onClose, position = 'bottom-right' } = props
+  const { result, onClose, position = 'bottom-right', resolveFrame } = props
   const grouped = useMemo(() => groupByKind(result.signals), [result.signals])
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
   const [activeKind, setActiveKind] = useState<SignalKind | null>(kindsPresent[0] ?? null)
@@ -406,10 +491,33 @@ export function Panel(props: PanelProps) {
     <div role="region" aria-label="react-perfscope panel" style={panelStyle}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <strong>react-perfscope</strong>
-        <button type="button" aria-label="Close panel" onClick={onClose}
-          style={{ background: 'transparent', color: '#e6e6e6', border: 'none', cursor: 'pointer', fontSize: '16px' }}>
-          ×
-        </button>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <button
+            type="button"
+            aria-label="Save recording"
+            onClick={() => downloadRecording(result)}
+            title="Save recording as JSON"
+            style={{
+              background: 'transparent',
+              color: '#e6e6e6',
+              border: '1px solid #2a2a2a',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              padding: '2px 8px',
+            }}
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            aria-label="Close panel"
+            onClick={onClose}
+            style={{ background: 'transparent', color: '#e6e6e6', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+          >
+            ×
+          </button>
+        </div>
       </header>
 
       {kindsPresent.length === 0 && (
@@ -473,6 +581,7 @@ export function Panel(props: PanelProps) {
                     expanded={expandedKey === key}
                     onToggleExpand={() => setExpandedKey(expandedKey === key ? null : key)}
                     onHoverGeometry={handleHover}
+                    resolveFrame={resolveFrame}
                   />
                 )
               }

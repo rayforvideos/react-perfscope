@@ -1,4 +1,4 @@
-import type { Recorder } from '@react-perfscope/core'
+import type { Recorder, StackFrame } from '@react-perfscope/core'
 
 export type WidgetPosition =
   | 'bottom-right'
@@ -16,6 +16,12 @@ export interface MountOptions {
    * to document.body. Useful for testing or custom layouts.
    */
   host?: HTMLElement
+  /**
+   * Optional async resolver that maps a captured StackFrame to its original
+   * source position. The Panel uses this when expanding a row with stack data.
+   * Defaults to a no-op if not provided.
+   */
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
 }
 
 export type UnmountFn = () => void

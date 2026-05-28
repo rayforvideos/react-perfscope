@@ -33,6 +33,8 @@ Click any row to expand its detail. Each signal kind shows different info:
 - **web-vital** — metric name, value with unit, rating (good/needs/poor) dot per [Google thresholds](https://web.dev/vitals/)
 - **render** — component, reason, duration, timestamp
 
+The header has a **Save** button that downloads the full recording as JSON. Stack frames inside the panel are passed through the optional `resolveFrame` mount option — when provided (the meta-package `auto` entry wires one up against the live dev server's source maps), bundle URLs like `bundle.js?v=abc:2552:28` become real source positions like `src/App.tsx:132:15`.
+
 The `render` tab also offers **Group by component** (collapsing many commits of the same component into one row); the `forced-reflow` tab offers **Group by source** (grouping reflows by their originating call site).
 
 ## API
@@ -88,6 +90,8 @@ const unmount = mount({ recorder })
 - **paint** — paint 이름 (first-paint / first-contentful-paint)
 - **web-vital** — 메트릭 이름, 단위 포함된 값, [Google 기준](https://web.dev/vitals/)에 따른 등급 (good/needs/poor) 색 점
 - **render** — 컴포넌트, reason, duration, 타임스탬프
+
+헤더에는 **Save** 버튼이 있어서 전체 recording을 JSON으로 다운로드 받을 수 있다. 패널의 스택 프레임은 `resolveFrame` mount 옵션을 거치는데, 이게 제공되면 (meta 패키지의 `auto` entry가 자동으로 dev 서버의 source map에 대해 연결해줌) `bundle.js?v=abc:2552:28` 같은 번들 URL이 `src/App.tsx:132:15` 같은 실제 소스 위치로 변환된다.
 
 `render` 탭에는 **Group by component** (같은 컴포넌트의 여러 commit을 한 row로 묶음), `forced-reflow` 탭에는 **Group by source** (같은 call site에서 발생한 reflow끼리 묶음) 옵션도 있다.
 
