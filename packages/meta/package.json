@@ -18,6 +18,7 @@
     }
   },
   "files": ["dist"],
+  "sideEffects": ["./dist/auto.js", "./dist/auto.cjs"],
   "scripts": {
     "build": "tsup && node scripts/prepend-dts-refs.mjs",
     "typecheck": "tsc --noEmit"
