@@ -275,6 +275,50 @@ function SummaryLine({ signal }: { signal: Signal }) {
   return <span>{summary(signal)}</span>
 }
 
+type GroupMode = 'chronological' | 'component' | 'source'
+
+function tabSupportsGrouping(kind: SignalKind): boolean {
+  return kind === 'render' || kind === 'forced-reflow'
+}
+
+interface SignalGroup {
+  label: string
+  count: number
+  signals: Signal[]
+}
+
+function groupSignals(signals: Signal[], mode: GroupMode, kind: SignalKind): SignalGroup[] {
+  if (mode === 'chronological') {
+    return signals.map((s, i) => ({ label: `#${i + 1}`, count: 1, signals: [s] }))
+  }
+  if (mode === 'component' && kind === 'render') {
+    const byName = new Map<string, Signal[]>()
+    for (const s of signals) {
+      if (s.kind !== 'render') continue
+      const k = s.component
+      if (!byName.has(k)) byName.set(k, [])
+      byName.get(k)!.push(s)
+    }
+    return Array.from(byName.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([label, list]) => ({ label, count: list.length, signals: list }))
+  }
+  if (mode === 'source' && kind === 'forced-reflow') {
+    const bySource = new Map<string, Signal[]>()
+    for (const s of signals) {
+      if (s.kind !== 'forced-reflow') continue
+      const top = s.stack[0]
+      const k = top ? `${top.file}:${top.line}:${top.col}` : '(no stack)'
+      if (!bySource.has(k)) bySource.set(k, [])
+      bySource.get(k)!.push(s)
+    }
+    return Array.from(bySource.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([label, list]) => ({ label, count: list.length, signals: list }))
+  }
+  return signals.map((s, i) => ({ label: `#${i + 1}`, count: 1, signals: [s] }))
+}
+
 interface SignalRowProps {
   signal: Signal
   expanded: boolean
@@ -322,6 +366,7 @@ export function Panel(props: PanelProps) {
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
   const [activeKind, setActiveKind] = useState<SignalKind | null>(kindsPresent[0] ?? null)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const [groupMode, setGroupMode] = useState<Partial<Record<SignalKind, GroupMode>>>({})
   const activeOverlayCount = useRef(0)
 
   useEffect(() => () => hideAllOverlays(), [])
@@ -394,17 +439,76 @@ export function Panel(props: PanelProps) {
             ))}
           </nav>
 
+          {activeKind && tabSupportsGrouping(activeKind) && (
+            <label
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontSize: '11px', color: '#888' }}
+            >
+              Group by
+              <select
+                aria-label="Group by"
+                value={groupMode[activeKind] ?? 'chronological'}
+                onChange={(e) => {
+                  const v = (e.target as HTMLSelectElement).value as GroupMode
+                  setGroupMode({ ...groupMode, [activeKind]: v })
+                  setExpandedKey(null)
+                }}
+                style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
+              >
+                <option value="chronological">chronological</option>
+                {activeKind === 'render' && <option value="component">component</option>}
+                {activeKind === 'forced-reflow' && <option value="source">source</option>}
+              </select>
+            </label>
+          )}
+
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1 }}>
-            {activeKind && grouped[activeKind].map((s, i) => {
-              const key = `${activeKind}-${i}`
+            {activeKind && groupSignals(grouped[activeKind], groupMode[activeKind] ?? 'chronological', activeKind).map((g, gi) => {
+              const currentMode = groupMode[activeKind] ?? 'chronological'
+              if (currentMode === 'chronological') {
+                const key = `${activeKind}-${gi}`
+                return (
+                  <SignalRow
+                    key={key}
+                    signal={g.signals[0]!}
+                    expanded={expandedKey === key}
+                    onToggleExpand={() => setExpandedKey(expandedKey === key ? null : key)}
+                    onHoverGeometry={handleHover}
+                  />
+                )
+              }
+              const key = `${activeKind}-group-${gi}`
+              const isOpen = expandedKey === key
               return (
-                <SignalRow
+                <li
                   key={key}
-                  signal={s}
-                  expanded={expandedKey === key}
-                  onToggleExpand={() => setExpandedKey(expandedKey === key ? null : key)}
-                  onHoverGeometry={handleHover}
-                />
+                  aria-expanded={isOpen}
+                  onClick={() => setExpandedKey(isOpen ? null : key)}
+                  style={{
+                    padding: '6px 8px',
+                    borderTop: '1px solid #1a1a1a',
+                    fontFamily: 'SF Mono, Menlo, Consolas, monospace',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    userSelect: 'none' as const,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: '#888', width: '10px' }}>{isOpen ? '▼' : '▶'}</span>
+                    <span><strong>{g.label}</strong> ×{g.count}</span>
+                  </div>
+                  {isOpen && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #2a2a2a', paddingLeft: '8px' }}>
+                      {g.signals.slice(0, 20).map((s, si) => (
+                        <div key={si} style={{ padding: '2px 0' }}>
+                          <SummaryLine signal={s} />
+                        </div>
+                      ))}
+                      {g.signals.length > 20 && (
+                        <div style={{ color: '#888', marginTop: '4px' }}>+ {g.signals.length - 20} more</div>
+                      )}
+                    </div>
+                  )}
+                </li>
               )
             })}
           </ul>

@@ -6,6 +6,7 @@ import { hideAllOverlays } from '../src/overlay'
 
 afterEach(() => {
   hideAllOverlays()
+  cleanup()
 })
 
 function makeResult(signals: Signal[]): RecordingResult {
@@ -192,6 +193,41 @@ describe('Panel overlay integration', () => {
     const fading = document.querySelector('[data-perfscope-overlay]') as HTMLElement | null
     expect(fading).toBeTruthy()
     expect(fading!.style.opacity).toBe('0')
+    cleanup()
+  })
+})
+
+describe('Panel grouping toggle', () => {
+  it('renders the grouping toggle on the render tab', () => {
+    const result = makeResult([
+      { kind: 'render', at: 0, component: 'A', reason: 'commit', duration: 1 },
+      { kind: 'render', at: 1, component: 'B', reason: 'commit', duration: 1 },
+    ])
+    render(<Panel result={result} onClose={() => {}} />)
+    expect(screen.queryByLabelText(/group by/i)).toBeTruthy()
+    cleanup()
+  })
+
+  it('groups render signals by component when "component" is selected', () => {
+    const result = makeResult([
+      { kind: 'render', at: 0, component: 'App', reason: 'commit', duration: 1 },
+      { kind: 'render', at: 1, component: 'App', reason: 'commit', duration: 2 },
+      { kind: 'render', at: 2, component: 'Counter', reason: 'commit', duration: 1 },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    const select = screen.getByLabelText(/group by/i) as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'component' } })
+    expect(container.textContent).toMatch(/App.*×2/)
+    expect(container.textContent).toMatch(/Counter.*×1/)
+    cleanup()
+  })
+
+  it('does not show grouping toggle on tabs that do not support grouping', () => {
+    const result = makeResult([
+      { kind: 'web-vital', name: 'LCP', value: 100 },
+    ])
+    render(<Panel result={result} onClose={() => {}} />)
+    expect(screen.queryByLabelText(/group by/i)).toBeNull()
     cleanup()
   })
 })
