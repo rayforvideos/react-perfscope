@@ -86,7 +86,10 @@ describe('Panel overlay integration', () => {
     fireEvent.mouseEnter(li)
     expect(document.querySelector('[data-perfscope-overlay]')).toBeTruthy()
     fireEvent.mouseLeave(li)
-    expect(document.querySelector('[data-perfscope-overlay]')).toBeNull()
+    // Immediately after mouseLeave: overlay is fading, still in DOM
+    const fading = document.querySelector('[data-perfscope-overlay]') as HTMLElement | null
+    expect(fading).toBeTruthy()
+    expect(fading!.style.opacity).toBe('0')
     cleanup()
   })
 })
