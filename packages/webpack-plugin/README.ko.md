@@ -1,16 +1,16 @@
 # @react-perfscope/webpack
 
-> [한국어 README](./README.ko.md)
+> [English README](./README.md)
 
-Webpack plugin that adds `react-perfscope/auto` as an additional entry in development mode.
+development 모드에서 `react-perfscope/auto`를 추가 엔트리로 넣어주는 Webpack 플러그인.
 
-## Install
+## 설치
 
 ```sh
 npm install -D @react-perfscope/webpack react-perfscope
 ```
 
-## Usage
+## 사용법
 
 ```js
 // webpack.config.js
@@ -24,4 +24,4 @@ module.exports = {
 }
 ```
 
-The plugin checks `compiler.options.mode` and is a no-op when mode is anything other than `'development'`.
+플러그인은 `compiler.options.mode`를 확인해서 `'development'` 외에는 no-op으로 동작한다.

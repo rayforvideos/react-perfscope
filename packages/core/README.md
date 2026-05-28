@@ -1,5 +1,7 @@
 # @react-perfscope/core
 
+> [한국어 README](./README.ko.md)
+
 Core recording engine for `react-perfscope`. Provides a `Recorder` and pluggable `Collector`s that emit normalized performance signals.
 
 ## Status

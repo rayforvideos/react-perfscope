@@ -1,5 +1,7 @@
 # @react-perfscope/vite
 
+> [한국어 README](./README.ko.md)
+
 Vite plugin that auto-injects `react-perfscope/auto` into your HTML entry in dev mode.
 
 ## Install

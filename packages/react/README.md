@@ -1,5 +1,7 @@
 # @react-perfscope/react
 
+> [한국어 README](./README.ko.md)
+
 React 18+ adapter for `react-perfscope`. Installs a DevTools global hook to observe commits, walks fiber trees, and exposes a render collector that plugs into `@react-perfscope/core`.
 
 ## Status

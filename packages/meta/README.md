@@ -1,5 +1,7 @@
 # react-perfscope
 
+> [한국어 README](./README.ko.md)
+
 Performance debugging tool for React 18+ apps. Records forced reflows, layout shifts, long tasks, paint, web vitals, network, and React component renders during development.
 
 This meta package re-exports everything from `@react-perfscope/core`, `@react-perfscope/react`, and `@react-perfscope/ui`, plus a side-effect `react-perfscope/auto` entry that bootstraps the full UI in one import.

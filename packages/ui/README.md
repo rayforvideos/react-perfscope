@@ -1,5 +1,7 @@
 # @react-perfscope/ui
 
+> [한국어 README](./README.ko.md)
+
 Floating-widget UI for `react-perfscope`. Mounts a Shadow-DOM-isolated Preact tree into your page. Records performance signals, shows them in a per-kind tabbed panel, and highlights affected DOM regions via overlay rectangles.
 
 ## Status

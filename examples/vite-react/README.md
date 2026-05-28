@@ -1,5 +1,7 @@
 # react-perfscope demo — Vite + React 18
 
+> [한국어 README](./README.ko.md)
+
 Minimal demo showing `@react-perfscope/vite` + `react-perfscope` in a Vite + React 18 app.
 
 ## Run
