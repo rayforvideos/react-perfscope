@@ -84,4 +84,5 @@ export interface Recorder {
   stop(): RecordingResult
   isRecording(): boolean
   onSignal(cb: (signal: Signal) => void): () => void
+  use(collector: Collector): void
 }

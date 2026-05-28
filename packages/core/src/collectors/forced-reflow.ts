@@ -1,5 +1,5 @@
 import type { Collector, Signal } from '../types'
-import { parseStack } from '../sourcemap'
+import { attachLazyStack } from '../sourcemap'
 
 const LAYOUT_GETTERS = [
   'offsetWidth',
@@ -24,6 +24,16 @@ export function createForcedReflowCollector(): Collector {
   let active = false
   let emit: (s: Signal) => void = () => {}
   const saved: SavedDescriptor[] = []
+  let mutationObserver: MutationObserver | null = null
+
+  function consumePendingMutations(): boolean {
+    if (!mutationObserver) {
+      // Fallback when MutationObserver isn't available: always treat as dirty
+      // (Phase 1 over-report behavior).
+      return true
+    }
+    return mutationObserver.takeRecords().length > 0
+  }
 
   function patchGetter(proto: object, key: string) {
     if (typeof proto !== 'object' || proto === null) return
@@ -35,11 +45,16 @@ export function createForcedReflowCollector(): Collector {
       configurable: true,
       get(this: unknown) {
         if (active) {
+          if (!consumePendingMutations()) {
+            return originalGet.call(this)
+          }
           const at = performance.now()
-          const stack = parseStack(new Error().stack)
+          const rawStack = new Error().stack
           const value = originalGet.call(this)
           const duration = performance.now() - at
-          emit({ kind: 'forced-reflow', at, duration, stack })
+          const signal = { kind: 'forced-reflow' as const, at, duration } as unknown as Signal
+          attachLazyStack(signal, rawStack)
+          emit(signal)
           return value
         }
         return originalGet.call(this)
@@ -59,11 +74,16 @@ export function createForcedReflowCollector(): Collector {
       writable: true,
       value: function patchedLayoutMethod(this: unknown, ...args: unknown[]) {
         if (active) {
+          if (!consumePendingMutations()) {
+            return original.apply(this, args)
+          }
           const at = performance.now()
-          const stack = parseStack(new Error().stack)
+          const rawStack = new Error().stack
           const value = original.apply(this, args)
           const duration = performance.now() - at
-          emit({ kind: 'forced-reflow', at, duration, stack })
+          const signal = { kind: 'forced-reflow' as const, at, duration } as unknown as Signal
+          attachLazyStack(signal, rawStack)
+          emit(signal)
           return value
         }
         return original.apply(this, args)
@@ -77,6 +97,21 @@ export function createForcedReflowCollector(): Collector {
       if (active) return
       emit = emitFn
       active = true
+
+      if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+        try {
+          mutationObserver = new MutationObserver(() => {})
+          mutationObserver.observe(document, {
+            attributes: true,
+            childList: true,
+            subtree: true,
+            characterData: true,
+          })
+        } catch (err) {
+          console.warn('[react-perfscope] forced-reflow MutationObserver failed:', err)
+          mutationObserver = null
+        }
+      }
 
       if (typeof HTMLElement !== 'undefined') {
         for (const key of LAYOUT_GETTERS) {
@@ -92,6 +127,14 @@ export function createForcedReflowCollector(): Collector {
     deactivate() {
       if (!active) return
       active = false
+      if (mutationObserver) {
+        try {
+          mutationObserver.disconnect()
+        } catch {
+          // ignore
+        }
+        mutationObserver = null
+      }
       for (const { proto, key, descriptor } of saved) {
         Object.defineProperty(proto, key, descriptor)
       }

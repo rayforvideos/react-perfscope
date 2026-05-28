@@ -39,6 +39,25 @@ export async function resolveFrame(
   }
 }
 
+/**
+ * Attach a lazy `stack` getter to `target` that parses `raw` on first access
+ * and memoizes the result. Use this from collectors to defer parseStack cost
+ * until a consumer actually reads `signal.stack`.
+ */
+export function attachLazyStack(target: object, raw: string | undefined): void {
+  let cached: StackFrame[] | null = null
+  Object.defineProperty(target, 'stack', {
+    enumerable: true,
+    configurable: true,
+    get() {
+      if (cached === null) {
+        cached = parseStack(raw)
+      }
+      return cached
+    },
+  })
+}
+
 export function parseStack(raw: string | undefined): StackFrame[] {
   if (!raw) return []
   const frames: StackFrame[] = []

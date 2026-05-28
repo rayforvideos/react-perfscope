@@ -4,10 +4,9 @@ const BUFFER_CAP = 10_000
 
 export interface InternalRecorder extends Recorder {
   __push: (signal: Signal) => void
-  use: (collector: Collector) => void
 }
 
-export function createRecorder(): InternalRecorder {
+export function createRecorder(): Recorder {
   let recording = false
   let startedAt = 0
   let buffer: Signal[] = []
@@ -33,7 +32,7 @@ export function createRecorder(): InternalRecorder {
     notify(signal)
   }
 
-  return {
+  const recorder: InternalRecorder = {
     start() {
       if (recording) return
       recording = true
@@ -80,4 +79,5 @@ export function createRecorder(): InternalRecorder {
     },
     __push: push,
   }
+  return recorder
 }
