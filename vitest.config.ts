@@ -8,11 +8,12 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: false,
-    include: ['packages/*/tests/**/*.test.ts'],
+    include: ['packages/*/tests/**/*.test.{ts,tsx}'],
   },
   resolve: {
     alias: {
       '@react-perfscope/core': resolve(here, 'packages/core/src/index.ts'),
+      '@react-perfscope/react': resolve(here, 'packages/react/src/index.ts'),
     },
   },
 })

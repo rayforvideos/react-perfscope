@@ -116,4 +116,25 @@ describe('render collector', () => {
       collector.deactivate()
     }
   })
+
+  it('uses fiber.actualDuration when available, otherwise 0', () => {
+    const collector = createRenderCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    try {
+      function Foo() { return null }
+      function Bar() { return null }
+      const fooFiber = makeFiber(Foo, { actualDuration: 7.5 } as Partial<MinimalFiber>)
+      const barFiber = makeFiber(Bar, { return: fooFiber } as Partial<MinimalFiber>)
+      fooFiber.child = barFiber
+      fireCommit(fooFiber)
+      const renders = got as RenderSignal[]
+      const foo = renders.find((s) => s.component === 'Foo')
+      const bar = renders.find((s) => s.component === 'Bar')
+      expect(foo?.duration).toBe(7.5)
+      expect(bar?.duration).toBe(0)
+    } finally {
+      collector.deactivate()
+    }
+  })
 })
