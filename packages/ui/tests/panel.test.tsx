@@ -75,6 +75,64 @@ describe('Panel', () => {
   })
 })
 
+describe('Panel signal row expansion', () => {
+  it('does not show details by default', () => {
+    const result = makeResult([
+      { kind: 'forced-reflow', at: 10, duration: 1.5, stack: [{ file: 'App.tsx', line: 42, col: 7, fnName: 'click' }] },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    expect(container.textContent).not.toContain('App.tsx')
+    cleanup()
+  })
+
+  it('reveals stack frames when a forced-reflow row is clicked', () => {
+    const result = makeResult([
+      { kind: 'forced-reflow', at: 10, duration: 1.5, stack: [{ file: 'App.tsx', line: 42, col: 7, fnName: 'click' }] },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    const row = container.querySelector('li')!
+    fireEvent.click(row)
+    expect(container.textContent).toContain('App.tsx:42')
+    expect(container.textContent).toContain('click')
+    cleanup()
+  })
+
+  it('shows full URL for network signal on expand', () => {
+    const result = makeResult([
+      { kind: 'network', url: 'https://example.com/long/path/that/is/usually/cut', startedAt: 0, duration: 30, size: 1024, blocking: true },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    fireEvent.click(container.querySelector('li')!)
+    expect(container.textContent).toContain('https://example.com/long/path/that/is/usually/cut')
+    expect(container.textContent).toContain('blocking')
+    cleanup()
+  })
+
+  it('shows render reason and duration on expand', () => {
+    const result = makeResult([
+      { kind: 'render', at: 0, component: 'Header', reason: 'state-change', duration: 4.2 },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    fireEvent.click(container.querySelector('li')!)
+    expect(container.textContent).toContain('state-change')
+    cleanup()
+  })
+
+  it('only one row is expanded at a time', () => {
+    const result = makeResult([
+      { kind: 'render', at: 0, component: 'A', reason: 'commit', duration: 1 },
+      { kind: 'render', at: 1, component: 'B', reason: 'commit', duration: 1 },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    const rows = container.querySelectorAll('li')
+    fireEvent.click(rows[0]!)
+    fireEvent.click(rows[1]!)
+    expect(rows[0]!.getAttribute('aria-expanded')).toBe('false')
+    expect(rows[1]!.getAttribute('aria-expanded')).toBe('true')
+    cleanup()
+  })
+})
+
 describe('Panel overlay integration', () => {
   it('shows overlay on layout-shift hover, hides on leave', () => {
     const rect = new DOMRect(10, 20, 100, 50)
