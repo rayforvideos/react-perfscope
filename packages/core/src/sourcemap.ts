@@ -109,7 +109,8 @@ export function createSourceMapResolver(opts: CreateSourceMapResolverOptions = {
           const decoded = header.includes('base64')
             ? typeof atob === 'function'
               ? atob(payload)
-              : Buffer.from(payload, 'base64').toString('utf8')
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              : (globalThis as any).Buffer.from(payload, 'base64').toString('utf8')
             : decodeURIComponent(payload)
           return JSON.parse(decoded) as RawSourceMap
         }

@@ -6,6 +6,7 @@ import {
   createNetworkCollector,
   createWebVitalsCollector,
   createPaintCollector,
+  createSourceMapResolver,
 } from '@react-perfscope/core'
 import { createRenderCollector, installDevToolsHook } from '@react-perfscope/react'
 import { mount } from '@react-perfscope/ui'
@@ -45,7 +46,8 @@ function bootstrap(): void {
     recorder.use(createWebVitalsCollector())
     recorder.use(createPaintCollector())
     recorder.use(createRenderCollector())
-    mount({ recorder })
+    const resolver = createSourceMapResolver()
+    mount({ recorder, resolveFrame: (f) => resolver.resolve(f) })
     g.__REACT_PERFSCOPE_AUTO_MOUNTED__ = true
   } catch (err) {
     console.warn('[react-perfscope] auto bootstrap failed:', err)

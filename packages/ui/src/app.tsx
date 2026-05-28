@@ -1,6 +1,6 @@
 import { h } from 'preact'
 import { useState, useRef, useEffect } from 'preact/hooks'
-import type { Recorder, RecordingResult } from '@react-perfscope/core'
+import type { Recorder, RecordingResult, StackFrame } from '@react-perfscope/core'
 import { Widget } from './widget'
 import { Panel } from './panel'
 import type { WidgetPosition } from './types'
@@ -8,10 +8,11 @@ import type { WidgetPosition } from './types'
 export interface AppProps {
   recorder: Recorder
   position?: WidgetPosition
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
 }
 
 export function App(props: AppProps) {
-  const { recorder, position = 'bottom-right' } = props
+  const { recorder, position = 'bottom-right', resolveFrame } = props
   const [recording, setRecording] = useState(false)
   const [result, setResult] = useState<RecordingResult | null>(null)
   const [elapsedMs, setElapsedMs] = useState(0)
@@ -62,7 +63,7 @@ export function App(props: AppProps) {
         />
       )}
       {result !== null && (
-        <Panel result={result} position={position} onClose={onClose} />
+        <Panel result={result} position={position} onClose={onClose} resolveFrame={resolveFrame} />
       )}
     </>
   )

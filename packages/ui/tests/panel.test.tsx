@@ -197,6 +197,36 @@ describe('Panel overlay integration', () => {
   })
 })
 
+describe('Panel source-map resolution', () => {
+  it('invokes resolveFrame for each stack frame when forced-reflow row is expanded', async () => {
+    const resolveFrame = vi.fn(async (f) => ({ ...f, file: 'resolved.ts' }))
+    const result = makeResult([
+      { kind: 'forced-reflow', at: 0, duration: 1, stack: [
+        { file: 'bundle.js', line: 1, col: 1, fnName: 'a' },
+        { file: 'bundle.js', line: 2, col: 1, fnName: 'b' },
+      ]},
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} resolveFrame={resolveFrame} />)
+    fireEvent.click(container.querySelector('li')!)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(resolveFrame).toHaveBeenCalledTimes(2)
+    expect(container.textContent).toContain('resolved.ts')
+    cleanup()
+  })
+
+  it('falls back to original frames when no resolver provided', () => {
+    const result = makeResult([
+      { kind: 'forced-reflow', at: 0, duration: 1, stack: [
+        { file: 'bundle.js', line: 1, col: 1, fnName: 'a' },
+      ]},
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    fireEvent.click(container.querySelector('li')!)
+    expect(container.textContent).toContain('bundle.js')
+    cleanup()
+  })
+})
+
 describe('Panel grouping toggle', () => {
   it('renders the grouping toggle on the render tab', () => {
     const result = makeResult([
