@@ -1,6 +1,6 @@
 {
   "name": "@react-perfscope/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -12,7 +12,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup && node scripts/prepend-dts-refs.mjs",
     "typecheck": "tsc --noEmit"
@@ -20,5 +22,6 @@
   "dependencies": {
     "source-map": "^0.7.4",
     "web-vitals": "^4.0.0"
-  }
+  },
+  "license": "MIT"
 }

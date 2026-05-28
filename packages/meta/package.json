@@ -1,6 +1,6 @@
 {
   "name": "react-perfscope",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -17,7 +17,13 @@
       "require": "./dist/auto.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "./dist/auto.js",
+    "./dist/auto.cjs"
+  ],
   "scripts": {
     "build": "tsup && node scripts/prepend-dts-refs.mjs",
     "typecheck": "tsc --noEmit"
@@ -26,5 +32,6 @@
     "@react-perfscope/core": "workspace:*",
     "@react-perfscope/react": "workspace:*",
     "@react-perfscope/ui": "workspace:*"
-  }
+  },
+  "license": "MIT"
 }

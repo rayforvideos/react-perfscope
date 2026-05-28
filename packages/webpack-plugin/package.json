@@ -1,6 +1,6 @@
 {
   "name": "@react-perfscope/webpack",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -12,7 +12,10 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsup && node scripts/prepend-dts-refs.mjs",
     "typecheck": "tsc --noEmit"
@@ -22,5 +25,6 @@
   },
   "devDependencies": {
     "webpack": "^5.95.0"
-  }
+  },
+  "license": "MIT"
 }

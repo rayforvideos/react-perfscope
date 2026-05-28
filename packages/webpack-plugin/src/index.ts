@@ -17,10 +17,13 @@ export class ReactPerfscopePlugin {
   apply(compiler: Compiler): void {
     if (compiler.options.mode !== 'development') return
     const EntryPlugin = compiler.webpack.EntryPlugin
+    // EntryPlugin's options arg can be `string | EntryOptions`. Passing an
+    // empty EntryOptions makes this an additional "global" entry (loaded
+    // alongside the named entries). Webpack 5's typing accepts {} here.
     new EntryPlugin(
       compiler.context,
       'react-perfscope/auto',
-      { name: undefined } as never
+      {} as ConstructorParameters<typeof EntryPlugin>[2]
     ).apply(compiler)
   }
 }
