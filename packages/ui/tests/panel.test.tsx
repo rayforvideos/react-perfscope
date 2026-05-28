@@ -261,3 +261,35 @@ describe('Panel grouping toggle', () => {
     cleanup()
   })
 })
+
+describe('Panel export', () => {
+  it('renders a Save button in the header', () => {
+    const result = makeResult([])
+    render(<Panel result={result} onClose={() => {}} />)
+    expect(screen.getByLabelText(/save recording/i)).toBeTruthy()
+    cleanup()
+  })
+
+  it('triggers a JSON download with the recording data when Save is clicked', () => {
+    const result = makeResult([
+      { kind: 'render', at: 0, component: 'X', reason: 'commit', duration: 1 },
+    ])
+    const createObjectURLSpy = vi.fn(() => 'blob:fake')
+    const revokeSpy = vi.fn()
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    ;(URL as { createObjectURL: typeof URL.createObjectURL }).createObjectURL = createObjectURLSpy as never
+    ;(URL as { revokeObjectURL: typeof URL.revokeObjectURL }).revokeObjectURL = revokeSpy as never
+    try {
+      render(<Panel result={result} onClose={() => {}} />)
+      fireEvent.click(screen.getByLabelText(/save recording/i))
+      expect(createObjectURLSpy).toHaveBeenCalledOnce()
+      const blob = (createObjectURLSpy.mock.calls[0] as unknown[])[0] as Blob
+      expect(blob.type).toBe('application/json')
+    } finally {
+      ;(URL as { createObjectURL: typeof URL.createObjectURL }).createObjectURL = originalCreate
+      ;(URL as { revokeObjectURL: typeof URL.revokeObjectURL }).revokeObjectURL = originalRevoke
+      cleanup()
+    }
+  })
+})

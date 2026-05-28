@@ -344,6 +344,33 @@ interface SignalGroup {
   signals: Signal[]
 }
 
+function downloadRecording(result: RecordingResult): void {
+  // Materialise lazy `stack` getters on forced-reflow and long-task signals
+  // so JSON.stringify includes the parsed frames.
+  const exportable = {
+    ...result,
+    signals: result.signals.map((s) => {
+      if (s.kind === 'forced-reflow' || s.kind === 'long-task') {
+        return { ...s, stack: s.stack }
+      }
+      return s
+    }),
+  }
+  const json = JSON.stringify(exportable, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `react-perfscope-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+}
+
 function groupSignals(signals: Signal[], mode: GroupMode, kind: SignalKind): SignalGroup[] {
   if (mode === 'chronological') {
     return signals.map((s, i) => ({ label: `#${i + 1}`, count: 1, signals: [s] }))
@@ -464,10 +491,33 @@ export function Panel(props: PanelProps) {
     <div role="region" aria-label="react-perfscope panel" style={panelStyle}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <strong>react-perfscope</strong>
-        <button type="button" aria-label="Close panel" onClick={onClose}
-          style={{ background: 'transparent', color: '#e6e6e6', border: 'none', cursor: 'pointer', fontSize: '16px' }}>
-          ×
-        </button>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <button
+            type="button"
+            aria-label="Save recording"
+            onClick={() => downloadRecording(result)}
+            title="Save recording as JSON"
+            style={{
+              background: 'transparent',
+              color: '#e6e6e6',
+              border: '1px solid #2a2a2a',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              padding: '2px 8px',
+            }}
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            aria-label="Close panel"
+            onClick={onClose}
+            style={{ background: 'transparent', color: '#e6e6e6', border: 'none', cursor: 'pointer', fontSize: '16px' }}
+          >
+            ×
+          </button>
+        </div>
       </header>
 
       {kindsPresent.length === 0 && (
