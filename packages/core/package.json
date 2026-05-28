@@ -14,7 +14,7 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/prepend-dts-refs.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
