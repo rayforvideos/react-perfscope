@@ -21,6 +21,12 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(happy-dom@14.12.3)
 
+  packages/core:
+    dependencies:
+      source-map:
+        specifier: ^0.7.4
+        version: 0.7.6
+
 packages:
 
   /@esbuild/aix-ppc64@0.21.5:
@@ -1276,7 +1282,6 @@ packages:
   /source-map@0.7.6:
     resolution: {integrity: sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ==}
     engines: {node: '>= 12'}
-    dev: true
 
   /stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
