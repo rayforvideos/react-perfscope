@@ -1,0 +1,30 @@
+{
+  "name": "react-perfscope",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./auto": {
+      "types": "./dist/auto.d.ts",
+      "import": "./dist/auto.js",
+      "require": "./dist/auto.cjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup && node scripts/prepend-dts-refs.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-perfscope/core": "workspace:*",
+    "@react-perfscope/react": "workspace:*",
+    "@react-perfscope/ui": "workspace:*"
+  }
+}

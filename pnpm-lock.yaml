@@ -30,6 +30,18 @@ importers:
         specifier: ^4.0.0
         version: 4.2.4
 
+  packages/meta:
+    dependencies:
+      '@react-perfscope/core':
+        specifier: workspace:*
+        version: link:../core
+      '@react-perfscope/react':
+        specifier: workspace:*
+        version: link:../react
+      '@react-perfscope/ui':
+        specifier: workspace:*
+        version: link:../ui
+
   packages/react:
     dependencies:
       '@react-perfscope/core':
