@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createRecorder } from '../src/recorder'
+import type { InternalRecorder } from '../src/recorder'
 import type { Signal } from '../src/types'
 
 describe('Recorder state machine', () => {
@@ -55,9 +56,7 @@ const makeLongTask = (at: number, duration: number): Signal => ({
 
 describe('Recorder signal buffering', () => {
   it('buffers signals pushed while recording', () => {
-    const r = createRecorder() as ReturnType<typeof createRecorder> & {
-      __push: (s: Signal) => void
-    }
+    const r = createRecorder() as InternalRecorder
     r.start()
     r.__push(makeLongTask(1, 60))
     r.__push(makeLongTask(2, 80))
@@ -66,9 +65,7 @@ describe('Recorder signal buffering', () => {
   })
 
   it('drops signals pushed while not recording', () => {
-    const r = createRecorder() as ReturnType<typeof createRecorder> & {
-      __push: (s: Signal) => void
-    }
+    const r = createRecorder() as InternalRecorder
     r.__push(makeLongTask(1, 60))
     r.start()
     r.stop()
@@ -78,9 +75,7 @@ describe('Recorder signal buffering', () => {
   })
 
   it('clears buffer on next start', () => {
-    const r = createRecorder() as ReturnType<typeof createRecorder> & {
-      __push: (s: Signal) => void
-    }
+    const r = createRecorder() as InternalRecorder
     r.start()
     r.__push(makeLongTask(1, 60))
     r.stop()
@@ -90,9 +85,7 @@ describe('Recorder signal buffering', () => {
   })
 
   it('caps buffer at 10,000 signals (drops oldest)', () => {
-    const r = createRecorder() as ReturnType<typeof createRecorder> & {
-      __push: (s: Signal) => void
-    }
+    const r = createRecorder() as InternalRecorder
     r.start()
     for (let i = 0; i < 10_005; i++) {
       r.__push(makeLongTask(i, 60))
@@ -106,7 +99,7 @@ describe('Recorder signal buffering', () => {
 
 describe('Recorder onSignal subscription', () => {
   it('delivers buffered signals to subscribers while recording', () => {
-    const r = createRecorder()
+    const r = createRecorder() as InternalRecorder
     const received: Signal[] = []
     r.onSignal((s) => received.push(s))
     r.start()
@@ -116,7 +109,7 @@ describe('Recorder onSignal subscription', () => {
   })
 
   it('unsubscribe stops delivery', () => {
-    const r = createRecorder()
+    const r = createRecorder() as InternalRecorder
     const received: Signal[] = []
     const unsubscribe = r.onSignal((s) => received.push(s))
     r.start()
@@ -127,7 +120,7 @@ describe('Recorder onSignal subscription', () => {
   })
 
   it('multiple subscribers all receive', () => {
-    const r = createRecorder()
+    const r = createRecorder() as InternalRecorder
     const a: Signal[] = []
     const b: Signal[] = []
     r.onSignal((s) => a.push(s))
@@ -139,7 +132,7 @@ describe('Recorder onSignal subscription', () => {
   })
 
   it('subscriber error does not break other subscribers', () => {
-    const r = createRecorder()
+    const r = createRecorder() as InternalRecorder
     const received: Signal[] = []
     r.onSignal(() => {
       throw new Error('boom')
