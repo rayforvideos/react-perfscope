@@ -1,4 +1,12 @@
-import { createRecorder } from '@react-perfscope/core'
+import {
+  createRecorder,
+  createForcedReflowCollector,
+  createLongTasksCollector,
+  createLayoutShiftCollector,
+  createNetworkCollector,
+  createWebVitalsCollector,
+  createPaintCollector,
+} from '@react-perfscope/core'
 import { createRenderCollector, installDevToolsHook } from '@react-perfscope/react'
 import { mount } from '@react-perfscope/ui'
 
@@ -30,6 +38,12 @@ function bootstrap(): void {
     installDevToolsHook(() => {})
 
     const recorder = createRecorder()
+    recorder.use(createForcedReflowCollector())
+    recorder.use(createLongTasksCollector())
+    recorder.use(createLayoutShiftCollector())
+    recorder.use(createNetworkCollector())
+    recorder.use(createWebVitalsCollector())
+    recorder.use(createPaintCollector())
     recorder.use(createRenderCollector())
     mount({ recorder })
     g.__REACT_PERFSCOPE_AUTO_MOUNTED__ = true
