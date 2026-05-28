@@ -22,6 +22,7 @@
     "preact": "^10.20.0"
   },
   "devDependencies": {
+    "@react-perfscope/react": "workspace:*",
     "@testing-library/preact": "^3.2.4",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^18.3.0",

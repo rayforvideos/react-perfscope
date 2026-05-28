@@ -24,6 +24,16 @@ function ensureHookInstalled(): void {
       : null
 
   const hook: ReactDevToolsHook = existing && existing !== ourHook ? existing : {}
+  // React's injectInternals() checks for supportsFiber and calls inject() to
+  // get a renderer ID. Without these, React stores injectedHook = null and
+  // never calls onCommitFiberRoot on subsequent commits.
+  if (!hook.supportsFiber) {
+    hook.supportsFiber = true
+  }
+  if (typeof hook.inject !== 'function') {
+    let _nextRendererId = 1
+    hook.inject = () => _nextRendererId++
+  }
   hook.onCommitFiberRoot = (rendererId, root, priorityLevel) => {
     if (chainedOriginal) {
       try {

@@ -46,7 +46,18 @@ export interface ReactDevToolsHook {
     root: { current: MinimalFiber },
     priorityLevel?: unknown
   ) => void
-  // React DevTools sets many more fields; we only need this one.
+  /**
+   * React checks supportsFiber before storing the hook reference in its
+   * internal injectedHook. Must be true for React ≥ 16.4 to recognise the
+   * hook and call onCommitFiberRoot.
+   */
+  supportsFiber?: boolean
+  /**
+   * React calls inject(internals) and stores the returned renderer ID.
+   * A minimal no-op implementation (return 1) is sufficient for our purposes.
+   */
+  inject?: (internals: unknown) => number
+  // React DevTools sets many more fields; we only need the above.
   [key: string]: unknown
 }
 
