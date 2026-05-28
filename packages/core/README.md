@@ -6,7 +6,7 @@ Core recording engine for `react-perfscope`. Provides a `Recorder` and pluggable
 
 Phase 1 — minimal implementation. Forced-reflow and long-tasks collectors only.
 
-**Phase 1 caveat:** The forced-reflow collector emits on every layout read during recording. It does not yet track whether a preceding style write actually invalidated layout, so non-thrashing reads are also reported. Phase 2 adds proper dirty tracking.
+**Phase 2 update:** The forced-reflow collector now uses synchronous dirty tracking via `MutationObserver.takeRecords()` — it only emits when a DOM mutation occurred since the last layout read. Stack parsing is deferred until `signal.stack` is accessed, keeping per-signal cost low.
 
 ## Example
 
