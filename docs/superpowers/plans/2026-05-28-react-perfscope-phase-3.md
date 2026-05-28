@@ -252,12 +252,13 @@ git commit -m "fix(core): web-vitals collector subscribes once across start/stop
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "tests/**/*"]
 }
 ```
+
+(`include` covers `tests/**/*` so IntelliJ/VSCode TS service picks them up; `rootDir` is omitted intentionally so `tsc --noEmit` doesn't complain about test files outside `src/`. tsup uses its own entry config for the build.)
 
 - [ ] **Step 3: Create `packages/react/tsup.config.ts`**
 
