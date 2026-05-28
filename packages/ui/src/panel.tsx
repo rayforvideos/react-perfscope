@@ -55,8 +55,15 @@ function renderSignal(s: Signal): string {
   }
 }
 
+const POSITION_STYLES: Record<WidgetPosition, Record<string, string>> = {
+  'bottom-right': { bottom: '16px', right: '16px' },
+  'bottom-left': { bottom: '16px', left: '16px' },
+  'top-right': { top: '16px', right: '16px' },
+  'top-left': { top: '16px', left: '16px' },
+}
+
 export function Panel(props: PanelProps) {
-  const { result, onClose } = props
+  const { result, onClose, position = 'bottom-right' } = props
   const grouped = useMemo(() => groupByKind(result.signals), [result.signals])
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
   const [activeKind, setActiveKind] = useState<SignalKind | null>(
@@ -71,8 +78,7 @@ export function Panel(props: PanelProps) {
 
   const panelStyle = {
     position: 'fixed' as const,
-    bottom: '16px',
-    right: '16px',
+    ...POSITION_STYLES[position],
     width: '420px',
     maxHeight: '60vh',
     background: '#0d0d0d',
