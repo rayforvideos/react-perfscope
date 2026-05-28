@@ -44,10 +44,6 @@ This is a pnpm monorepo. Six published packages:
 | [`@react-perfscope/vite`](./packages/vite-plugin) | Vite plugin: auto-inject in dev |
 | [`@react-perfscope/webpack`](./packages/webpack-plugin) | Webpack plugin: auto-inject in dev |
 
-## Design
-
-The architecture is documented in `docs/superpowers/specs/`. Each phase has a plan in `docs/superpowers/plans/`. Read those for the full picture.
-
 ## Status
 
 Pre-publish (`0.1.0`). All 135 tests pass; all 6 packages typecheck and build cleanly. Production safety: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
@@ -114,10 +110,6 @@ pnpm 모노레포입니다. 6개 published 패키지:
 | [`@react-perfscope/ui`](./packages/ui) | Preact + Shadow DOM 위젯, 종류별 탭 패널, DOM 오버레이 |
 | [`@react-perfscope/vite`](./packages/vite-plugin) | Vite 플러그인: dev 자동 주입 |
 | [`@react-perfscope/webpack`](./packages/webpack-plugin) | Webpack 플러그인: dev 자동 주입 |
-
-## 설계
-
-아키텍처 문서는 `docs/superpowers/specs/`에 있습니다. 각 페이즈의 구현 계획은 `docs/superpowers/plans/`에 있어요. 전체 그림이 궁금하면 거기를 보세요.
 
 ## 상태
 
