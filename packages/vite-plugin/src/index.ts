@@ -14,14 +14,17 @@ export default function reactPerfscope(_opts?: ReactPerfscopePluginOptions): Plu
     name: 'react-perfscope',
     apply: 'serve',
     transformIndexHtml(_html: string): HtmlTagDescriptor[] {
+      // Inline-import form goes through Vite's standard import-analysis
+      // pipeline (documented public API). head-prepend ensures the bootstrap
+      // executes before any author scripts that pull in react-dom — required
+      // because react-dom captures __REACT_DEVTOOLS_GLOBAL_HOOK__ at module
+      // evaluation time.
       return [
         {
           tag: 'script',
-          attrs: {
-            type: 'module',
-            src: '/@id/react-perfscope/auto',
-          },
-          injectTo: 'head',
+          attrs: { type: 'module' },
+          children: `import 'react-perfscope/auto'`,
+          injectTo: 'head-prepend',
         },
       ]
     },
