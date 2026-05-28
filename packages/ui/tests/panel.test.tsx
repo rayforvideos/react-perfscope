@@ -133,6 +133,50 @@ describe('Panel signal row expansion', () => {
   })
 })
 
+describe('Panel severity coloring', () => {
+  it('renders web-vital with the value unit (ms for LCP) and a rating indicator', () => {
+    const result = makeResult([
+      { kind: 'web-vital', name: 'LCP', value: 2400 },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    expect(container.textContent).toMatch(/2400/)
+    expect(container.textContent).toMatch(/ms/)
+    expect(container.querySelector('[data-rating]')).toBeTruthy()
+    cleanup()
+  })
+
+  it('renders CLS without ms unit and with rating from CLS thresholds', () => {
+    const result = makeResult([
+      { kind: 'web-vital', name: 'CLS', value: 0.08 },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    expect(container.textContent).not.toMatch(/0\.08ms/)
+    const rating = container.querySelector('[data-rating]')
+    expect(rating?.getAttribute('data-rating')).toBe('good')
+    cleanup()
+  })
+
+  it('marks long tasks > 100ms as severe', () => {
+    const result = makeResult([
+      { kind: 'long-task', at: 0, duration: 150, stack: [] },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    const rating = container.querySelector('[data-severity]')
+    expect(rating?.getAttribute('data-severity')).toBe('high')
+    cleanup()
+  })
+
+  it('marks long tasks 50-100ms as medium', () => {
+    const result = makeResult([
+      { kind: 'long-task', at: 0, duration: 75, stack: [] },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    const rating = container.querySelector('[data-severity]')
+    expect(rating?.getAttribute('data-severity')).toBe('medium')
+    cleanup()
+  })
+})
+
 describe('Panel overlay integration', () => {
   it('shows overlay on layout-shift hover, hides on leave', () => {
     const rect = new DOMRect(10, 20, 100, 50)

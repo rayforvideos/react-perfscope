@@ -52,6 +52,68 @@ function groupByKind(signals: Signal[]): Record<SignalKind, Signal[]> {
   return acc
 }
 
+type Rating = 'good' | 'needs' | 'poor'
+type Severity = 'low' | 'medium' | 'high'
+
+// Google Web Vitals thresholds (https://web.dev/vitals/).
+function webVitalRating(name: WebVitalSignal['name'], value: number): Rating {
+  const T: Record<WebVitalSignal['name'], [number, number]> = {
+    LCP: [2500, 4000],
+    INP: [200, 500],
+    CLS: [0.1, 0.25],
+    FCP: [1800, 3000],
+    TTFB: [800, 1800],
+  }
+  const [good, needs] = T[name]
+  if (value <= good) return 'good'
+  if (value <= needs) return 'needs'
+  return 'poor'
+}
+
+function longTaskSeverity(durationMs: number): Severity {
+  if (durationMs >= 100) return 'high'
+  if (durationMs >= 50) return 'medium'
+  return 'low'
+}
+
+const RATING_COLOR: Record<Rating, string> = {
+  good: '#34c759',
+  needs: '#ff9500',
+  poor: '#ff3b30',
+}
+
+const SEVERITY_COLOR: Record<Severity, string> = {
+  low: '#666',
+  medium: '#ff9500',
+  high: '#ff3b30',
+}
+
+const WEB_VITAL_UNIT: Record<WebVitalSignal['name'], string> = {
+  LCP: 'ms',
+  INP: 'ms',
+  CLS: '',
+  FCP: 'ms',
+  TTFB: 'ms',
+}
+
+function RatingDot({ rating }: { rating: Rating }) {
+  return (
+    <span
+      data-rating={rating}
+      aria-label={`rating: ${rating}`}
+      style={{
+        display: 'inline-block',
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        background: RATING_COLOR[rating],
+        marginRight: '6px',
+        verticalAlign: 'middle',
+      }}
+    />
+  )
+}
+
 function summary(s: Signal): string {
   switch (s.kind) {
     case 'forced-reflow':
@@ -188,6 +250,31 @@ function SignalDetail({ s }: { s: Signal }) {
   }
 }
 
+function SummaryLine({ signal }: { signal: Signal }) {
+  if (signal.kind === 'web-vital') {
+    const rating = webVitalRating(signal.name, signal.value)
+    const unit = WEB_VITAL_UNIT[signal.name]
+    return (
+      <span>
+        <RatingDot rating={rating} />
+        <strong>{signal.name}</strong>: {signal.value.toFixed(2)}{unit}
+      </span>
+    )
+  }
+  if (signal.kind === 'long-task') {
+    const sev = longTaskSeverity(signal.duration)
+    return (
+      <span>
+        @ {signal.at.toFixed(1)}ms • duration{' '}
+        <span data-severity={sev} style={{ color: SEVERITY_COLOR[sev] }}>
+          {signal.duration.toFixed(1)}ms
+        </span>
+      </span>
+    )
+  }
+  return <span>{summary(signal)}</span>
+}
+
 interface SignalRowProps {
   signal: Signal
   expanded: boolean
@@ -218,7 +305,7 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry }: Signal
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <span style={{ color: '#888', width: '10px' }}>{expanded ? '▼' : '▶'}</span>
-        <span>{summary(signal)}</span>
+        <SummaryLine signal={signal} />
       </div>
       {expanded && (
         <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #2a2a2a' }}>
