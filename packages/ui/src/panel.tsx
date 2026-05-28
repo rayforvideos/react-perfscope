@@ -1,7 +1,8 @@
 import { h } from 'preact'
-import { useState, useMemo } from 'preact/hooks'
+import { useState, useMemo, useEffect } from 'preact/hooks'
 import type { RecordingResult, Signal, SignalKind } from '@react-perfscope/core'
 import type { WidgetPosition } from './types'
+import { showOverlay, hideOverlay, hideAllOverlays } from './overlay'
 
 export interface PanelProps {
   result: RecordingResult
@@ -61,6 +62,12 @@ export function Panel(props: PanelProps) {
   const [activeKind, setActiveKind] = useState<SignalKind | null>(
     kindsPresent[0] ?? null
   )
+
+  useEffect(() => {
+    return () => {
+      hideAllOverlays()
+    }
+  }, [])
 
   const panelStyle = {
     position: 'fixed' as const,
@@ -153,19 +160,38 @@ export function Panel(props: PanelProps) {
             }}
           >
             {activeKind &&
-              grouped[activeKind].map((s, i) => (
-                <li
-                  key={i}
-                  style={{
-                    padding: '6px 8px',
-                    borderTop: '1px solid #1a1a1a',
-                    fontFamily: 'SF Mono, Menlo, Consolas, monospace',
-                    fontSize: '11px',
-                  }}
-                >
-                  {renderSignal(s)}
-                </li>
-              ))}
+              grouped[activeKind].map((s, i) => {
+                const overlayId = `signal-${activeKind}-${i}`
+                const hasGeometry = s.kind === 'layout-shift' && s.sources.length > 0
+                return (
+                  <li
+                    key={i}
+                    onMouseEnter={() => {
+                      if (hasGeometry && s.kind === 'layout-shift') {
+                        for (let j = 0; j < s.sources.length; j++) {
+                          showOverlay(`${overlayId}-${j}`, s.sources[j]!)
+                        }
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      if (hasGeometry && s.kind === 'layout-shift') {
+                        for (let j = 0; j < s.sources.length; j++) {
+                          hideOverlay(`${overlayId}-${j}`)
+                        }
+                      }
+                    }}
+                    style={{
+                      padding: '6px 8px',
+                      borderTop: '1px solid #1a1a1a',
+                      fontFamily: 'SF Mono, Menlo, Consolas, monospace',
+                      fontSize: '11px',
+                      cursor: hasGeometry ? 'pointer' : 'default',
+                    }}
+                  >
+                    {renderSignal(s)}
+                  </li>
+                )
+              })}
           </ul>
         </>
       )}

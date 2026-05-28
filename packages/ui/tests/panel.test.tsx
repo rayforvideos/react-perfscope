@@ -1,7 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, fireEvent, cleanup, screen } from '@testing-library/preact'
 import type { RecordingResult, Signal } from '@react-perfscope/core'
 import { Panel } from '../src/panel'
+import { hideAllOverlays } from '../src/overlay'
+
+afterEach(() => {
+  hideAllOverlays()
+})
 
 function makeResult(signals: Signal[]): RecordingResult {
   return { signals, startedAt: 0, duration: 1000 }
@@ -66,6 +71,22 @@ describe('Panel', () => {
     render(<Panel result={result} onClose={onClose} />)
     fireEvent.click(screen.getByLabelText(/close/i))
     expect(onClose).toHaveBeenCalledOnce()
+    cleanup()
+  })
+})
+
+describe('Panel overlay integration', () => {
+  it('shows overlay on layout-shift hover, hides on leave', () => {
+    const rect = new DOMRect(10, 20, 100, 50)
+    const result = makeResult([
+      { kind: 'layout-shift', at: 0, value: 0.05, sources: [rect] },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    const li = container.querySelector('li')!
+    fireEvent.mouseEnter(li)
+    expect(document.querySelector('[data-perfscope-overlay]')).toBeTruthy()
+    fireEvent.mouseLeave(li)
+    expect(document.querySelector('[data-perfscope-overlay]')).toBeNull()
     cleanup()
   })
 })
