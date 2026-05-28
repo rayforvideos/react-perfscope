@@ -11,3 +11,4 @@ export type { FetchMap } from './sourcemap'
 // Collectors
 export { createLongTasksCollector } from './collectors/long-tasks'
 export { createForcedReflowCollector } from './collectors/forced-reflow'
+export { createLayoutShiftCollector } from './collectors/layout-shift'
