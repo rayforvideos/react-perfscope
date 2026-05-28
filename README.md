@@ -58,7 +58,7 @@ Pre-publish (`0.1.0`). All 135 tests pass; all 6 packages typecheck and build cl
 pnpm install
 pnpm test          # vitest, 135 tests
 pnpm typecheck     # tsc --noEmit per package
-pnpm -r --filter=./packages/* build   # tsup per package
+pnpm build         # tsup per package (filtered to packages/*)
 ```
 
 ## License

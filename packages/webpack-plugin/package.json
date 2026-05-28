@@ -12,7 +12,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup && node scripts/prepend-dts-refs.mjs",
@@ -23,5 +25,6 @@
   },
   "devDependencies": {
     "webpack": "^5.95.0"
-  }
+  },
+  "license": "MIT"
 }

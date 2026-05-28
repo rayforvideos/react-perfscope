@@ -17,8 +17,13 @@
       "require": "./dist/auto.cjs"
     }
   },
-  "files": ["dist"],
-  "sideEffects": ["./dist/auto.js", "./dist/auto.cjs"],
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "./dist/auto.js",
+    "./dist/auto.cjs"
+  ],
   "scripts": {
     "build": "tsup && node scripts/prepend-dts-refs.mjs",
     "typecheck": "tsc --noEmit"
@@ -27,5 +32,6 @@
     "@react-perfscope/core": "workspace:*",
     "@react-perfscope/react": "workspace:*",
     "@react-perfscope/ui": "workspace:*"
-  }
+  },
+  "license": "MIT"
 }
