@@ -1,2 +1,6 @@
 export * from './types'
 export { mountShadow } from './shadow-mount'
+export { mount } from './mount'
+export { Widget } from './widget'
+export { Panel } from './panel'
+export { App } from './app'
