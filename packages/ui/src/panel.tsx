@@ -116,12 +116,19 @@ function RatingDot({ rating }: { rating: Rating }) {
   )
 }
 
+function formatCls(value: number): string {
+  if (value === 0) return '0'
+  if (value < 0.001) return value.toExponential(2)
+  if (value < 0.01) return value.toFixed(4)
+  return value.toFixed(3)
+}
+
 function summary(s: Signal): string {
   switch (s.kind) {
     case 'forced-reflow':
       return `@ ${s.at.toFixed(1)}ms • duration ${s.duration.toFixed(2)}ms`
     case 'layout-shift':
-      return `@ ${s.at.toFixed(1)}ms • value ${s.value.toFixed(3)} • ${s.sources.length} source(s)`
+      return `@ ${s.at.toFixed(1)}ms • value ${formatCls(s.value)} • ${s.sources.length} source(s)`
     case 'long-task':
       return `@ ${s.at.toFixed(1)}ms • duration ${s.duration.toFixed(1)}ms`
     case 'paint':
