@@ -47,31 +47,43 @@ interface WalkOptions {
    * deep trees. Default 10_000.
    */
   stopAt?: number
+  /**
+   * Predicate deciding whether to descend into a fiber's children. Returning
+   * false prunes the entire subtree (the fiber itself is still visited). Used
+   * to skip subtrees that did no work this commit. Defaults to always descend.
+   */
+  descend?: (fiber: MinimalFiber) => boolean
 }
 
 /**
- * Walk a fiber subtree depth-first, invoking `visit` for every fiber.
- * Returns early once `stopAt` fibers have been visited.
+ * Walk a fiber subtree depth-first, invoking `visit` for every fiber with its
+ * depth relative to `root` (root is depth 0). Returns early once `stopAt`
+ * fibers have been visited. When `descend` returns false for a fiber, its
+ * children are skipped entirely.
  */
 export function walkChangedFibers(
   root: MinimalFiber,
-  visit: (fiber: MinimalFiber) => void,
+  visit: (fiber: MinimalFiber, depth: number) => void,
   opts: WalkOptions = {}
 ): void {
   const max = opts.stopAt ?? 10_000
+  const descend = opts.descend ?? (() => true)
   let count = 0
+  let depth = 0
   let node: MinimalFiber | null = root
   while (node) {
-    visit(node)
+    visit(node, depth)
     count++
     if (count >= max) return
-    if (node.child) {
+    if (node.child && descend(node)) {
       node = node.child
+      depth++
       continue
     }
     while (node && !node.sibling) {
       if (node === root) return
       node = node.return
+      depth--
     }
     if (!node || node === root) return
     node = node.sibling

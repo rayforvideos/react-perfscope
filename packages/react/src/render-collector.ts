@@ -1,31 +1,49 @@
 import type { Collector, Signal } from '@react-perfscope/core'
 import { installDevToolsHook } from './devtools-hook'
 import { fiberComponentName, walkChangedFibers } from './fiber-walker'
+import { classifyRenderReason, didPerformWork, subtreeMightHaveRendered } from './render-reason'
 import type { MinimalFiber } from './types'
 
 export function createRenderCollector(): Collector {
   let active = false
   let emit: (signal: Signal) => void = () => {}
   let unsubscribe: (() => void) | null = null
+  let commitId = 0
 
   function onCommit(root: { current: MinimalFiber }) {
     if (!active) return
     const at = performance.now()
-    walkChangedFibers(root.current, (fiber) => {
-      // Skip host (DOM) fibers — we only want function/class components in
-      // render reports.
-      if (typeof fiber.type === 'string') return
-      const name = fiberComponentName(fiber)
-      if (!name) return
-      const duration = typeof fiber.actualDuration === 'number' ? fiber.actualDuration : 0
-      emit({
-        kind: 'render',
-        at,
-        component: name,
-        reason: 'commit',
-        duration,
-      })
-    })
+    const id = commitId++
+    walkChangedFibers(
+      root.current,
+      (fiber, depth) => {
+        // Skip host (DOM) fibers — we only want function/class components in
+        // render reports.
+        if (typeof fiber.type === 'string') return
+        // Only report fibers that actually re-ran their render this commit.
+        // A bailed-out fiber (e.g. memo with equal props) keeps its place in
+        // the tree but did no work, so reporting it would be noise.
+        if (!didPerformWork(fiber)) return
+        const name = fiberComponentName(fiber)
+        if (!name) return
+        const duration = typeof fiber.actualDuration === 'number' ? fiber.actualDuration : 0
+        const { reason, changedProps } = classifyRenderReason(fiber)
+        emit({
+          kind: 'render',
+          at,
+          component: name,
+          reason,
+          duration,
+          commitId: id,
+          depth,
+          ...(changedProps ? { changedProps } : {}),
+        })
+      },
+      // Prune subtrees that did no work this commit. Without this, a leaf that
+      // mounted long ago keeps its stale PerformedWork flag and gets reported
+      // as a phantom render on every unrelated commit.
+      { descend: subtreeMightHaveRendered }
+    )
   }
 
   return {

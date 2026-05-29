@@ -34,6 +34,24 @@ export interface MinimalFiber {
   memoizedProps?: unknown
   /** Set by React when the fiber is inside a Profiler-enabled root. */
   actualDuration?: number
+  /**
+   * React's effect/work bitmask. The low bit (`PerformedWork`, 0b1) is set
+   * when beginWork actually ran this fiber's render (i.e. it did NOT bail
+   * out). We use it to tell "this rendered" from "this was skipped".
+   *
+   * Caveat: React does NOT clear this on a fiber that bailed out, so a leaf
+   * that rendered in some past commit keeps the bit set forever. Read it only
+   * for fibers the reconciler actually visited this commit (see `subtreeFlags`).
+   */
+  flags?: number
+  /**
+   * React bubbles every descendant's flags (including `PerformedWork`) into
+   * this field during completeWork. Unlike `flags`, it is reset whenever the
+   * reconciler re-clones a fiber, so `subtreeFlags & PerformedWork === 0`
+   * reliably means "nothing below me rendered this commit" — letting us prune
+   * the walk before reaching stale leaves. Absent on React < 18.
+   */
+  subtreeFlags?: number
 }
 
 /**

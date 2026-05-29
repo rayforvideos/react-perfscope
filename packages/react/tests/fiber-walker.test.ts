@@ -82,6 +82,24 @@ describe('walkChangedFibers', () => {
     expect(visited).toEqual(['section', 'div', 'em'])
   })
 
+  it('prunes a subtree when descend returns false (fiber itself still visited)', () => {
+    const grandchild = makeFiber('span')
+    const prunedChild = makeFiber('div', { child: grandchild })
+    const keptSibling = makeFiber('em')
+    prunedChild.sibling = keptSibling
+    const root = makeFiber('section', { child: prunedChild })
+    grandchild.return = prunedChild
+    prunedChild.return = root
+    keptSibling.return = root
+
+    const visited: unknown[] = []
+    walkChangedFibers(root, (f) => visited.push(f.type), {
+      descend: (f) => f.type !== 'div',
+    })
+    // 'div' is visited but its child 'span' is pruned; the sibling 'em' remains.
+    expect(visited).toEqual(['section', 'div', 'em'])
+  })
+
   it('does not visit beyond a stopAt limit', () => {
     // Make a long linear tree
     let current = makeFiber(0)

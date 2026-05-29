@@ -3,6 +3,7 @@ import { createRenderCollector } from '../src/render-collector'
 import { uninstallDevToolsHook } from '../src/devtools-hook'
 import type { Signal, RenderSignal } from '@react-perfscope/core'
 import type { MinimalFiber, ReactDevToolsHook } from '../src/types'
+import { PERFORMED_WORK } from '../src/render-reason'
 
 beforeEach(() => {
   uninstallDevToolsHook()
@@ -27,6 +28,7 @@ function makeFiber(type: unknown, opts: Partial<MinimalFiber> = {}): MinimalFibe
     child: null,
     sibling: null,
     alternate: null,
+    flags: PERFORMED_WORK,
     ...opts,
   } as MinimalFiber
 }
@@ -112,6 +114,107 @@ describe('render collector', () => {
       fireCommit(makeFiber(Foo))
       expect(first).toHaveLength(0)
       expect(second.length).toBeGreaterThanOrEqual(1)
+    } finally {
+      collector.deactivate()
+    }
+  })
+
+  it('skips fibers that did not perform work (bailed out)', () => {
+    const collector = createRenderCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    try {
+      function App() { return null }
+      function MemoChild() { return null }
+      const appFiber = makeFiber(App)
+      const child = makeFiber(MemoChild, { return: appFiber, flags: 0 } as Partial<MinimalFiber>)
+      appFiber.child = child
+      fireCommit(appFiber)
+      const names = (got as RenderSignal[]).map((s) => s.component)
+      expect(names).toContain('App')
+      expect(names).not.toContain('MemoChild')
+    } finally {
+      collector.deactivate()
+    }
+  })
+
+  it('does not descend into a bailed subtree carrying stale PerformedWork flags', () => {
+    // Real-world regression: clicking an isolated component (Counter) re-renders
+    // only it, but a sibling subtree (CascadeDemo → ExpensiveChild) that mounted
+    // long ago keeps PerformedWork set on its leaves forever (React never clears
+    // it on bailed-out fibers). The walk must prune at the bailed parent — whose
+    // subtreeFlags correctly report no work — so the stale leaves are never
+    // reported as phantom renders.
+    const collector = createRenderCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    try {
+      function App() { return null }
+      function Counter() { return null }
+      function CascadeDemo() { return null }
+      function ExpensiveChild() { return null }
+
+      // App bailed itself (flags 0) but its subtree has work (Counter).
+      const appFiber = makeFiber(App, { flags: 0, subtreeFlags: PERFORMED_WORK })
+      // Counter genuinely rendered: own flag set, nothing below.
+      const counterFiber = makeFiber(Counter, {
+        flags: PERFORMED_WORK,
+        subtreeFlags: 0,
+        return: appFiber,
+      })
+      // CascadeDemo bailed and was re-cloned this commit: flags AND subtreeFlags
+      // both cleared — it correctly reports "no work below me".
+      const cascadeFiber = makeFiber(CascadeDemo, {
+        flags: 0,
+        subtreeFlags: 0,
+        return: appFiber,
+      })
+      // ExpensiveChild was NOT re-cloned, so its PerformedWork flag is stale.
+      const staleChild = makeFiber(ExpensiveChild, {
+        flags: PERFORMED_WORK,
+        subtreeFlags: 0,
+        return: cascadeFiber,
+      })
+      appFiber.child = counterFiber
+      counterFiber.sibling = cascadeFiber
+      cascadeFiber.child = staleChild
+      fireCommit(appFiber)
+
+      const names = (got as RenderSignal[]).map((s) => s.component)
+      expect(names).toContain('Counter')
+      expect(names).not.toContain('ExpensiveChild')
+    } finally {
+      collector.deactivate()
+    }
+  })
+
+  it('labels a cascade: state root + parent-driven victim, shared commitId, increasing depth', () => {
+    const collector = createRenderCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    try {
+      function Root() { return null }
+      function Victim() { return null }
+      // Root: props identical to its previous render, parent did no work → state root.
+      const rootAlt = makeFiber(Root, { memoizedProps: {} })
+      const rootFiber = makeFiber(Root, { memoizedProps: {}, alternate: rootAlt })
+      // Victim: props identical, but parent (Root) performed work → cascade.
+      const victimAlt = makeFiber(Victim, { memoizedProps: {} })
+      const victimFiber = makeFiber(Victim, {
+        memoizedProps: {},
+        alternate: victimAlt,
+        return: rootFiber,
+      })
+      rootFiber.child = victimFiber
+      fireCommit(rootFiber)
+      const renders = got as RenderSignal[]
+      const root = renders.find((s) => s.component === 'Root')!
+      const victim = renders.find((s) => s.component === 'Victim')!
+      expect(root.reason).toBe('state')
+      expect(victim.reason).toBe('parent')
+      expect(root.commitId).toBe(victim.commitId)
+      expect(root.depth).toBe(0)
+      expect(victim.depth).toBe(1)
     } finally {
       collector.deactivate()
     }

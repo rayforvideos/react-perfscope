@@ -4,6 +4,7 @@ import type { Signal, RenderSignal } from '@react-perfscope/core'
 import { createRenderCollector } from '../src/render-collector'
 import { uninstallDevToolsHook } from '../src/devtools-hook'
 import type { MinimalFiber, ReactDevToolsHook } from '../src/types'
+import { PERFORMED_WORK } from '../src/render-reason'
 
 beforeEach(() => {
   uninstallDevToolsHook()
@@ -28,6 +29,7 @@ function makeFiber(type: unknown, opts: Partial<MinimalFiber> = {}): MinimalFibe
     child: null,
     sibling: null,
     alternate: null,
+    flags: PERFORMED_WORK,
     ...opts,
   } as MinimalFiber
 }
