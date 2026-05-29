@@ -14,7 +14,7 @@ import type {
   StackFrame,
 } from '@react-perfscope/core'
 import type { WidgetPosition } from './types'
-import { showOverlay, hideOverlay, hideAllOverlays } from './overlay'
+import { showOverlay, hideOverlay, hideAllOverlays, showArrow, hideArrow } from './overlay'
 import {
   severityForSignal,
   worstSeverity,
@@ -91,6 +91,17 @@ function RatingDot({ rating }: { rating: Rating }) {
       }}
     />
   )
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  // Accepts #rrggbb only. Returns rgba(...) with the requested alpha.
+  const m = /^#([0-9a-f]{6})$/i.exec(hex)
+  if (!m) return hex
+  const v = m[1]!
+  const r = parseInt(v.slice(0, 2), 16)
+  const g = parseInt(v.slice(2, 4), 16)
+  const b = parseInt(v.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 function formatCls(value: number): string {
@@ -453,7 +464,7 @@ interface SignalRowProps {
   signal: Signal
   expanded: boolean
   onToggleExpand: () => void
-  onHoverGeometry: (rects: DOMRect[] | null) => void
+  onHoverGeometry: (signal: LayoutShiftSignal | null) => void
   resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
 }
 
@@ -466,7 +477,7 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveF
       data-severity={sev}
       onClick={onToggleExpand}
       onMouseEnter={() => {
-        if (hasGeometry && signal.kind === 'layout-shift') onHoverGeometry(signal.sources)
+        if (hasGeometry && signal.kind === 'layout-shift') onHoverGeometry(signal)
       }}
       onMouseLeave={() => {
         if (hasGeometry) onHoverGeometry(null)
@@ -516,16 +527,43 @@ export function Panel(props: PanelProps) {
 
   useEffect(() => () => hideAllOverlays(), [])
 
-  function handleHover(rects: DOMRect[] | null) {
-    if (!rects) {
+  function handleHover(signal: LayoutShiftSignal | null) {
+    if (!signal) {
       for (let i = 0; i < activeOverlayCount.current; i++) {
         hideOverlay(`signal-${i}`)
+        hideOverlay(`signal-prev-${i}`)
+        hideArrow(`signal-arrow-${i}`)
       }
       activeOverlayCount.current = 0
       return
     }
-    rects.forEach((r, i) => showOverlay(`signal-${i}`, r))
-    activeOverlayCount.current = rects.length
+    const sev = severityForSignal(signal)
+    const color = SEVERITY_COLOR[sev]
+    const fillAlpha = sev === 'high' ? 0.18 : sev === 'medium' ? 0.14 : 0.1
+    const fillRgba = hexToRgba(color, fillAlpha)
+    signal.sources.forEach((r, i) => {
+      // Skip sources with no current geometry — these typically represent
+      // detached/removed nodes. Drawing an overlay (or worse, an arrow
+      // pointing at 0,0) would be confusing noise.
+      if (r.width <= 0 || r.height <= 0) return
+      showOverlay(`signal-${i}`, r, { border: color, fill: fillRgba })
+      const prev = signal.previousSources?.[i] ?? null
+      if (prev && prev.width > 0 && prev.height > 0) {
+        showOverlay(`signal-prev-${i}`, prev, {
+          border: color,
+          fill: 'transparent',
+          dashed: true,
+        })
+        const from = { x: prev.x + prev.width / 2, y: prev.y + prev.height / 2 }
+        const to = { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+        const dx = to.x - from.x
+        const dy = to.y - from.y
+        if (Math.hypot(dx, dy) > 8) {
+          showArrow(`signal-arrow-${i}`, from, to, color)
+        }
+      }
+    })
+    activeOverlayCount.current = signal.sources.length
   }
 
   const panelStyle = {

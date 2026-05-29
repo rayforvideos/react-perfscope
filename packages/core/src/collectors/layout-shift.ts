@@ -123,20 +123,25 @@ export function createLayoutShiftCollector(): Collector {
             // widget is position:fixed, lives in viewport space).
             const sx = (typeof window !== 'undefined' && window.scrollX) || 0
             const sy = (typeof window !== 'undefined' && window.scrollY) || 0
-            const rects = sources.map(
-              (s) =>
-                new DOMRect(
-                  s.currentRect.x + sx,
-                  s.currentRect.y + sy,
-                  s.currentRect.width,
-                  s.currentRect.height,
-                ),
-            )
+            const toDocRect = (r: DOMRect) =>
+              new DOMRect(r.x + sx, r.y + sy, r.width, r.height)
+            const rects = sources.map((s) => toDocRect(s.currentRect))
+            // previousRect is undefined when the element was newly inserted.
+            // An "empty" rect (w=0, h=0) likewise means there was no prior
+            // box — treat both as `null` so the overlay can decide not to
+            // draw an arrow for these.
+            const prevRects: (DOMRect | null)[] = sources.map((s) => {
+              const pr = s.previousRect
+              if (!pr) return null
+              if (pr.width === 0 && pr.height === 0) return null
+              return toDocRect(pr)
+            })
             emit({
               kind: 'layout-shift',
               at: entry.startTime,
               value: entry.value,
               sources: rects,
+              previousSources: prevRects,
             })
           }
         })

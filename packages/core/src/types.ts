@@ -17,6 +17,13 @@ export type LayoutShiftSignal = {
   at: number
   value: number
   sources: DOMRect[]
+  /**
+   * Parallel array to `sources`. Each entry is the rect of the source node
+   * BEFORE the shift, in document coords. `null` when the source had no
+   * previous rect (newly inserted element). Lets consumers draw a "moved
+   * from → to" arrow during overlay rendering.
+   */
+  previousSources?: (DOMRect | null)[]
 }
 
 export type LongTaskSignal = {
