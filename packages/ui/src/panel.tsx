@@ -15,6 +15,16 @@ import type {
 } from '@react-perfscope/core'
 import type { WidgetPosition } from './types'
 import { showOverlay, hideOverlay, hideAllOverlays } from './overlay'
+import {
+  severityForSignal,
+  worstSeverity,
+  webVitalRating,
+  SEVERITY_COLOR,
+  RATING_COLOR,
+  severityRank,
+  type Severity,
+  type Rating,
+} from './severity'
 
 export interface PanelProps {
   result: RecordingResult
@@ -52,42 +62,6 @@ function groupByKind(signals: Signal[]): Record<SignalKind, Signal[]> {
   } as Record<SignalKind, Signal[]>
   for (const s of signals) acc[s.kind].push(s)
   return acc
-}
-
-type Rating = 'good' | 'needs' | 'poor'
-type Severity = 'low' | 'medium' | 'high'
-
-// Google Web Vitals thresholds (https://web.dev/vitals/).
-function webVitalRating(name: WebVitalSignal['name'], value: number): Rating {
-  const T: Record<WebVitalSignal['name'], [number, number]> = {
-    LCP: [2500, 4000],
-    INP: [200, 500],
-    CLS: [0.1, 0.25],
-    FCP: [1800, 3000],
-    TTFB: [800, 1800],
-  }
-  const [good, needs] = T[name]
-  if (value <= good) return 'good'
-  if (value <= needs) return 'needs'
-  return 'poor'
-}
-
-function longTaskSeverity(durationMs: number): Severity {
-  if (durationMs >= 100) return 'high'
-  if (durationMs >= 50) return 'medium'
-  return 'low'
-}
-
-const RATING_COLOR: Record<Rating, string> = {
-  good: '#34c759',
-  needs: '#ff9500',
-  poor: '#ff3b30',
-}
-
-const SEVERITY_COLOR: Record<Severity, string> = {
-  low: '#666',
-  medium: '#ff9500',
-  high: '#ff3b30',
 }
 
 const WEB_VITAL_UNIT: Record<WebVitalSignal['name'], string> = {
@@ -314,6 +288,25 @@ function SignalDetail({
   }
 }
 
+function SeverityDot({ sev, title }: { sev: Severity; title?: string }) {
+  return (
+    <span
+      data-severity={sev}
+      aria-label={`severity: ${sev}`}
+      title={title ?? sev}
+      style={{
+        display: 'inline-block',
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        background: SEVERITY_COLOR[sev],
+        flex: '0 0 8px',
+        boxShadow: sev === 'high' ? '0 0 6px rgba(255,59,48,0.6)' : 'none',
+      }}
+    />
+  )
+}
+
 function SummaryLine({ signal }: { signal: Signal }) {
   if (signal.kind === 'web-vital') {
     const rating = webVitalRating(signal.name, signal.value)
@@ -325,14 +318,47 @@ function SummaryLine({ signal }: { signal: Signal }) {
       </span>
     )
   }
+  const sev = severityForSignal(signal)
+  const color = SEVERITY_COLOR[sev]
   if (signal.kind === 'long-task') {
-    const sev = longTaskSeverity(signal.duration)
     return (
       <span>
         @ {signal.at.toFixed(1)}ms • duration{' '}
-        <span data-severity={sev} style={{ color: SEVERITY_COLOR[sev] }}>
-          {signal.duration.toFixed(1)}ms
-        </span>
+        <span style={{ color }}>{signal.duration.toFixed(1)}ms</span>
+      </span>
+    )
+  }
+  if (signal.kind === 'forced-reflow') {
+    return (
+      <span>
+        @ {signal.at.toFixed(1)}ms • duration{' '}
+        <span style={{ color }}>{signal.duration.toFixed(2)}ms</span>
+      </span>
+    )
+  }
+  if (signal.kind === 'layout-shift') {
+    return (
+      <span>
+        @ {signal.at.toFixed(1)}ms • value{' '}
+        <span style={{ color }}>{formatCls(signal.value)}</span>
+        {' • '}{signal.sources.length} source(s)
+      </span>
+    )
+  }
+  if (signal.kind === 'render') {
+    return (
+      <span>
+        <strong>{signal.component}</strong> • {signal.reason} •{' '}
+        <span style={{ color }}>{signal.duration.toFixed(2)}ms</span>
+      </span>
+    )
+  }
+  if (signal.kind === 'network') {
+    const url = signal.url.length > 60 ? signal.url.slice(0, 57) + '...' : signal.url
+    return (
+      <span>
+        {url} • <span style={{ color }}>{signal.duration.toFixed(0)}ms</span>
+        {signal.blocking && <span style={{ color: SEVERITY_COLOR.high }}> • blocking</span>}
       </span>
     )
   }
@@ -340,9 +366,19 @@ function SummaryLine({ signal }: { signal: Signal }) {
 }
 
 type GroupMode = 'chronological' | 'component' | 'source'
+type SortMode = 'chronological' | 'severity'
 
 function tabSupportsGrouping(kind: SignalKind): boolean {
   return kind === 'render' || kind === 'forced-reflow'
+}
+
+function sortSignalsBySeverity(signals: Signal[]): Signal[] {
+  return [...signals].sort((a, b) => {
+    const ra = severityRank(severityForSignal(a))
+    const rb = severityRank(severityForSignal(b))
+    if (rb !== ra) return rb - ra
+    return a.kind === 'web-vital' || b.kind === 'web-vital' ? 0 : (('at' in a ? a.at : 0) - ('at' in b ? b.at : 0))
+  })
 }
 
 interface SignalGroup {
@@ -420,9 +456,11 @@ interface SignalRowProps {
 
 function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveFrame }: SignalRowProps) {
   const hasGeometry = signal.kind === 'layout-shift' && signal.sources.length > 0
+  const sev = severityForSignal(signal)
   return (
     <li
       aria-expanded={expanded}
+      data-severity={sev}
       onClick={onToggleExpand}
       onMouseEnter={() => {
         if (hasGeometry && signal.kind === 'layout-shift') onHoverGeometry(signal.sources)
@@ -433,6 +471,7 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveF
       style={{
         padding: '6px 8px',
         borderTop: '1px solid #1a1a1a',
+        borderLeft: `3px solid ${sev === 'low' ? 'transparent' : SEVERITY_COLOR[sev]}`,
         fontFamily: 'SF Mono, Menlo, Consolas, monospace',
         fontSize: '11px',
         cursor: 'pointer',
@@ -441,6 +480,7 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveF
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <span style={{ color: '#888', width: '10px' }}>{expanded ? '▼' : '▶'}</span>
+        <SeverityDot sev={sev} />
         <SummaryLine signal={signal} />
       </div>
       {expanded && (
@@ -459,6 +499,7 @@ export function Panel(props: PanelProps) {
   const [activeKind, setActiveKind] = useState<SignalKind | null>(kindsPresent[0] ?? null)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [groupMode, setGroupMode] = useState<Partial<Record<SignalKind, GroupMode>>>({})
+  const [sortMode, setSortMode] = useState<Partial<Record<SignalKind, SortMode>>>({})
   const activeOverlayCount = useRef(0)
 
   useEffect(() => () => hideAllOverlays(), [])
@@ -534,50 +575,83 @@ export function Panel(props: PanelProps) {
       {kindsPresent.length > 0 && (
         <>
           <nav style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
-            {kindsPresent.map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                onClick={() => { setActiveKind(kind); setExpandedKey(null) }}
-                style={{
-                  background: activeKind === kind ? '#2a2a2a' : '#1a1a1a',
-                  color: '#e6e6e6',
-                  border: '1px solid #2a2a2a',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                }}
-              >
-                {kind} {grouped[kind].length}
-              </button>
-            ))}
+            {kindsPresent.map((kind) => {
+              const worst = worstSeverity(grouped[kind])
+              const active = activeKind === kind
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  data-kind={kind}
+                  data-worst-severity={worst}
+                  onClick={() => { setActiveKind(kind); setExpandedKey(null) }}
+                  style={{
+                    background: active ? '#2a2a2a' : '#1a1a1a',
+                    color: '#e6e6e6',
+                    border: `1px solid ${worst === 'low' ? '#2a2a2a' : SEVERITY_COLOR[worst]}`,
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  {worst !== 'low' && <SeverityDot sev={worst} title={`worst: ${worst}`} />}
+                  {kind} {grouped[kind].length}
+                </button>
+              )
+            })}
           </nav>
 
-          {activeKind && tabSupportsGrouping(activeKind) && (
-            <label
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontSize: '11px', color: '#888' }}
-            >
-              Group by
-              <select
-                aria-label="Group by"
-                value={groupMode[activeKind] ?? 'chronological'}
-                onChange={(e) => {
-                  const v = (e.target as HTMLSelectElement).value as GroupMode
-                  setGroupMode({ ...groupMode, [activeKind]: v })
-                  setExpandedKey(null)
-                }}
-                style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
-              >
-                <option value="chronological">chronological</option>
-                {activeKind === 'render' && <option value="component">component</option>}
-                {activeKind === 'forced-reflow' && <option value="source">source</option>}
-              </select>
-            </label>
+          {activeKind && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px', fontSize: '11px', color: '#888', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Sort
+                <select
+                  aria-label="Sort by"
+                  value={sortMode[activeKind] ?? 'chronological'}
+                  onChange={(e) => {
+                    const v = (e.target as HTMLSelectElement).value as SortMode
+                    setSortMode({ ...sortMode, [activeKind]: v })
+                    setExpandedKey(null)
+                  }}
+                  style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
+                >
+                  <option value="chronological">chronological</option>
+                  <option value="severity">severity (worst first)</option>
+                </select>
+              </label>
+              {tabSupportsGrouping(activeKind) && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Group by
+                  <select
+                    aria-label="Group by"
+                    value={groupMode[activeKind] ?? 'chronological'}
+                    onChange={(e) => {
+                      const v = (e.target as HTMLSelectElement).value as GroupMode
+                      setGroupMode({ ...groupMode, [activeKind]: v })
+                      setExpandedKey(null)
+                    }}
+                    style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
+                  >
+                    <option value="chronological">chronological</option>
+                    {activeKind === 'render' && <option value="component">component</option>}
+                    {activeKind === 'forced-reflow' && <option value="source">source</option>}
+                  </select>
+                </label>
+              )}
+            </div>
           )}
 
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1 }}>
-            {activeKind && groupSignals(grouped[activeKind], groupMode[activeKind] ?? 'chronological', activeKind).map((g, gi) => {
+            {activeKind && (() => {
+              const baseSignals = (sortMode[activeKind] ?? 'chronological') === 'severity'
+                ? sortSignalsBySeverity(grouped[activeKind])
+                : grouped[activeKind]
+              return groupSignals(baseSignals, groupMode[activeKind] ?? 'chronological', activeKind)
+            })().map((g, gi) => {
               const currentMode = groupMode[activeKind] ?? 'chronological'
               if (currentMode === 'chronological') {
                 const key = `${activeKind}-${gi}`
