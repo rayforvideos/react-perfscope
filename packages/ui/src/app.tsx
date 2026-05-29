@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'preact/hooks'
 import type { Recorder, RecordingResult, StackFrame } from '@react-perfscope/core'
 import { Widget } from './widget'
 import { Panel } from './panel'
+import { I18nProvider } from './i18n'
 import type { WidgetPosition } from './types'
 
 export interface AppProps {
@@ -53,7 +54,7 @@ export function App(props: AppProps) {
   }
 
   return (
-    <>
+    <I18nProvider>
       {result === null && (
         <Widget
           recording={recording}
@@ -65,6 +66,6 @@ export function App(props: AppProps) {
       {result !== null && (
         <Panel result={result} position={position} onClose={onClose} resolveFrame={resolveFrame} />
       )}
-    </>
+    </I18nProvider>
   )
 }

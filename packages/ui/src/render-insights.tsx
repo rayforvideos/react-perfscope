@@ -1,6 +1,7 @@
 import { h } from 'preact'
 import type { RenderSignal } from '@react-perfscope/core'
 import { severityForSignal, SEVERITY_COLOR } from './severity'
+import { useI18n } from './i18n'
 
 interface RenderInsightsProps {
   signals: RenderSignal[]
@@ -41,6 +42,7 @@ function aggregate(signals: RenderSignal[]): Aggregate[] {
 const TOP_N = 5
 
 export function RenderInsights({ signals, onSelect }: RenderInsightsProps) {
+  const { t } = useI18n()
   if (signals.length === 0) return null
   const rows = aggregate(signals)
   const top = rows.slice(0, TOP_N)
@@ -58,7 +60,7 @@ export function RenderInsights({ signals, onSelect }: RenderInsightsProps) {
       }}
     >
       <div style={{ fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-        Top renderers · by total time
+        {t.topRenderers}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {top.map((a) => {
@@ -108,7 +110,7 @@ export function RenderInsights({ signals, onSelect }: RenderInsightsProps) {
         })}
         {hiddenCount > 0 && (
           <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>
-            + {hiddenCount} more component{hiddenCount === 1 ? '' : 's'}
+            {t.moreComponents(hiddenCount)}
           </div>
         )}
       </div>

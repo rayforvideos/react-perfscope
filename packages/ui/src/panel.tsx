@@ -29,6 +29,7 @@ import {
 import { SummaryHeader } from './summary'
 import { Timeline } from './timeline'
 import { RenderInsights } from './render-insights'
+import { useI18n, type Lang } from './i18n'
 
 export interface PanelProps {
   result: RecordingResult
@@ -139,15 +140,16 @@ const monoStyle = {
 } as const
 
 function LayoutShiftDetail({ s }: { s: LayoutShiftSignal }) {
+  const { t } = useI18n()
   return (
     <div style={{ paddingLeft: '12px' }}>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>value</span><span>{s.value.toFixed(4)}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.value}</span><span>{s.value.toFixed(4)}</span></div>
       {s.sources.length === 0 ? (
-        <div style={{ color: '#666' }}>No source rects.</div>
+        <div style={{ color: '#666' }}>{t.noSourceRects}</div>
       ) : (
         s.sources.map((r, i) => (
           <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
-            <span style={{ color: '#888' }}>rect {i + 1}</span>
+            <span style={{ color: '#888' }}>{t.rect} {i + 1}</span>
             <span>x={r.x.toFixed(0)} y={r.y.toFixed(0)} w={r.width.toFixed(0)} h={r.height.toFixed(0)}</span>
           </div>
         ))
@@ -157,44 +159,48 @@ function LayoutShiftDetail({ s }: { s: LayoutShiftSignal }) {
 }
 
 function NetworkDetail({ s }: { s: NetworkSignal }) {
+  const { t } = useI18n()
   return (
     <div style={{ paddingLeft: '12px' }}>
       <div style={{ ...detailRowStyle, ...monoStyle, wordBreak: 'break-all' as const }}>
         <span>{s.url}</span>
       </div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>started</span><span>{s.startedAt.toFixed(0)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(0)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>size</span><span>{(s.size / 1024).toFixed(2)}KB ({s.size} bytes)</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>render-blocking</span><span>{s.blocking ? 'yes' : 'no'}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.started}</span><span>{s.startedAt.toFixed(0)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.duration}</span><span>{s.duration.toFixed(0)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.size}</span><span>{(s.size / 1024).toFixed(2)}KB ({s.size} {t.bytes})</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.renderBlocking}</span><span>{s.blocking ? t.yes : t.no}</span></div>
     </div>
   )
 }
 
 function PaintDetail({ s }: { s: PaintSignal }) {
+  const { t } = useI18n()
   return (
     <div style={{ paddingLeft: '12px' }}>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>at</span><span>{s.at.toFixed(2)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>cause</span><span>{s.cause}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.at}</span><span>{s.at.toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.cause}</span><span>{s.cause}</span></div>
     </div>
   )
 }
 
 function WebVitalDetail({ s }: { s: WebVitalSignal }) {
+  const { t } = useI18n()
   return (
     <div style={{ paddingLeft: '12px' }}>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>metric</span><span>{s.name}</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>value</span><span>{s.value.toFixed(2)}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.metric}</span><span>{s.name}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.value}</span><span>{s.value.toFixed(2)}</span></div>
     </div>
   )
 }
 
 function RenderDetail({ s }: { s: RenderSignal }) {
+  const { t } = useI18n()
   return (
     <div style={{ paddingLeft: '12px' }}>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>component</span><span>{s.component}</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>reason</span><span>{s.reason}</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(3)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>at</span><span>{s.at.toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.component}</span><span>{s.component}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.reason}</span><span>{s.reason}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.duration}</span><span>{s.duration.toFixed(3)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.at}</span><span>{s.at.toFixed(2)}ms</span></div>
     </div>
   )
 }
@@ -208,6 +214,7 @@ function StackFrames({
   resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
   limit?: number
 }) {
+  const { t } = useI18n()
   const original = raw.slice(0, limit)
   const [frames, setFrames] = useState<StackFrame[]>(original)
   const [resolving, setResolving] = useState(false)
@@ -233,15 +240,15 @@ function StackFrames({
     <>
       {resolving && (
         <div style={{ color: '#666', fontSize: '10px', marginBottom: '4px' }}>
-          resolving source maps…
+          {t.resolvingSourceMaps}
         </div>
       )}
       {frames.length === 0 ? (
-        <div style={{ color: '#666' }}>No stack captured.</div>
+        <div style={{ color: '#666' }}>{t.noStack}</div>
       ) : (
         frames.map((f, i) => (
           <div key={i} style={{ ...detailRowStyle, ...monoStyle }}>
-            {f.fnName ? <span>{f.fnName}</span> : <span style={{ color: '#666' }}>(anonymous)</span>}
+            {f.fnName ? <span>{f.fnName}</span> : <span style={{ color: '#666' }}>{t.anonymous}</span>}
             <span style={{ color: '#888' }}>{f.file}:{f.line}:{f.col}</span>
           </div>
         ))
@@ -271,11 +278,12 @@ function LongTaskDetail({
   s: LongTaskSignal
   resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
 }) {
+  const { t } = useI18n()
   return (
     <div style={{ paddingLeft: '12px' }}>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>started</span><span>{s.at.toFixed(2)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>ended</span><span>{(s.at + s.duration).toFixed(2)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>duration</span><span>{s.duration.toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.started}</span><span>{s.at.toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.ended}</span><span>{(s.at + s.duration).toFixed(2)}ms</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.duration}</span><span>{s.duration.toFixed(2)}ms</span></div>
       {s.stack.length > 0 && (
         <div style={{ marginTop: '4px' }}>
           <StackFrames raw={s.stack} resolveFrame={resolveFrame} limit={5} />
@@ -323,6 +331,7 @@ function SeverityDot({ sev, title }: { sev: Severity; title?: string }) {
 }
 
 function SummaryLine({ signal }: { signal: Signal }) {
+  const { t } = useI18n()
   if (signal.kind === 'web-vital') {
     const rating = webVitalRating(signal.name, signal.value)
     const unit = WEB_VITAL_UNIT[signal.name]
@@ -356,7 +365,7 @@ function SummaryLine({ signal }: { signal: Signal }) {
       <span>
         @ {signal.at.toFixed(1)}ms • value{' '}
         <span style={{ color }}>{formatCls(signal.value)}</span>
-        {' • '}{signal.sources.length} source(s)
+        {' • '}{t.sourceCount(signal.sources.length)}
       </span>
     )
   }
@@ -373,7 +382,7 @@ function SummaryLine({ signal }: { signal: Signal }) {
     return (
       <span>
         {url} • <span style={{ color }}>{signal.duration.toFixed(0)}ms</span>
-        {signal.blocking && <span style={{ color: SEVERITY_COLOR.high }}> • blocking</span>}
+        {signal.blocking && <span style={{ color: SEVERITY_COLOR.high }}> • {t.blocking}</span>}
       </span>
     )
   }
@@ -509,8 +518,51 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveF
 
 type ActiveTab = SignalKind | 'timeline'
 
+function LanguageToggle() {
+  const { lang, setLang } = useI18n()
+  const langs: Lang[] = ['en', 'ko']
+  const labels: Record<Lang, string> = { en: 'EN', ko: '한' }
+  return (
+    <div
+      role="group"
+      aria-label="Language"
+      style={{
+        display: 'inline-flex',
+        border: '1px solid #2a2a2a',
+        borderRadius: '4px',
+        overflow: 'hidden',
+      }}
+    >
+      {langs.map((l) => {
+        const active = lang === l
+        return (
+          <button
+            key={l}
+            type="button"
+            aria-pressed={active}
+            data-lang={l}
+            onClick={() => setLang(l)}
+            style={{
+              background: active ? '#2a2a2a' : 'transparent',
+              color: active ? '#e6e6e6' : '#888',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '11px',
+              padding: '2px 8px',
+              fontWeight: active ? 600 : 400,
+            }}
+          >
+            {labels[l]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Panel(props: PanelProps) {
   const { result, onClose, position = 'bottom-right', resolveFrame } = props
+  const { t } = useI18n()
   const grouped = useMemo(() => groupByKind(result.signals), [result.signals])
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
   const hasTimelineSignals = result.signals.some(
@@ -591,11 +643,12 @@ export function Panel(props: PanelProps) {
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <strong>react-perfscope</strong>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <LanguageToggle />
           <button
             type="button"
-            aria-label="Save recording"
+            aria-label={t.saveAria}
             onClick={() => downloadRecording(result)}
-            title="Save recording as JSON"
+            title={t.saveTitle}
             style={{
               background: 'transparent',
               color: '#e6e6e6',
@@ -606,11 +659,11 @@ export function Panel(props: PanelProps) {
               padding: '2px 8px',
             }}
           >
-            Save
+            {t.save}
           </button>
           <button
             type="button"
-            aria-label="Close panel"
+            aria-label={t.closeAria}
             onClick={onClose}
             style={{ background: 'transparent', color: '#e6e6e6', border: 'none', cursor: 'pointer', fontSize: '16px' }}
           >
@@ -620,7 +673,7 @@ export function Panel(props: PanelProps) {
       </header>
 
       {kindsPresent.length === 0 && (
-        <div style={{ color: '#888' }}>No signals recorded.</div>
+        <div style={{ color: '#888' }}>{t.noSignals}</div>
       )}
 
       {kindsPresent.length > 0 && (
@@ -648,7 +701,7 @@ export function Panel(props: PanelProps) {
                   fontSize: '11px',
                 }}
               >
-                timeline
+                {t.timeline}
               </button>
             )}
             {kindsPresent.map((kind) => {
@@ -684,9 +737,9 @@ export function Panel(props: PanelProps) {
           {activeKind && activeTab !== 'timeline' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px', fontSize: '11px', color: '#888', flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                Sort
+                {t.sort}
                 <select
-                  aria-label="Sort by"
+                  aria-label={t.sort}
                   value={sortMode[activeKind] ?? 'chronological'}
                   onChange={(e) => {
                     const v = (e.target as HTMLSelectElement).value as SortMode
@@ -695,15 +748,15 @@ export function Panel(props: PanelProps) {
                   }}
                   style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
                 >
-                  <option value="chronological">chronological</option>
-                  <option value="severity">severity (worst first)</option>
+                  <option value="chronological">{t.sortChronological}</option>
+                  <option value="severity">{t.sortSeverity}</option>
                 </select>
               </label>
               {tabSupportsGrouping(activeKind) && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  Group by
+                  {t.groupBy}
                   <select
-                    aria-label="Group by"
+                    aria-label={t.groupBy}
                     value={groupMode[activeKind] ?? 'chronological'}
                     onChange={(e) => {
                       const v = (e.target as HTMLSelectElement).value as GroupMode
@@ -712,9 +765,9 @@ export function Panel(props: PanelProps) {
                     }}
                     style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
                   >
-                    <option value="chronological">chronological</option>
-                    {activeKind === 'render' && <option value="component">component</option>}
-                    {activeKind === 'forced-reflow' && <option value="source">source</option>}
+                    <option value="chronological">{t.groupChronological}</option>
+                    {activeKind === 'render' && <option value="component">{t.groupComponent}</option>}
+                    {activeKind === 'forced-reflow' && <option value="source">{t.groupSource}</option>}
                   </select>
                 </label>
               )}
@@ -794,7 +847,7 @@ export function Panel(props: PanelProps) {
                         </div>
                       ))}
                       {g.signals.length > 20 && (
-                        <div style={{ color: '#888', marginTop: '4px' }}>+ {g.signals.length - 20} more</div>
+                        <div style={{ color: '#888', marginTop: '4px' }}>{t.moreItems(g.signals.length - 20)}</div>
                       )}
                     </div>
                   )}

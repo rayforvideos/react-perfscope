@@ -2,6 +2,7 @@ import { h, Fragment } from 'preact'
 import { useMemo, useRef, useState } from 'preact/hooks'
 import type { Signal, SignalKind } from '@react-perfscope/core'
 import { severityForSignal, SEVERITY_OVERLAY_COLOR } from './severity'
+import { useI18n } from './i18n'
 
 interface TimelineProps {
   signals: Signal[]
@@ -102,6 +103,7 @@ function plotLane(
 }
 
 export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps) {
+  const { t } = useI18n()
   const trackRef = useRef<HTMLDivElement | null>(null)
   const [hovered, setHovered] = useState<{ s: Signal; clientX: number; clientY: number } | null>(null)
   const [cursorFrac, setCursorFrac] = useState<number | null>(null)
@@ -134,7 +136,7 @@ export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps
   if (presentLanes.length === 0) {
     return (
       <div style={{ color: '#888', padding: '20px', textAlign: 'center', fontSize: '11px' }}>
-        No time-bound signals to plot.
+        {t.noTimeBound}
       </div>
     )
   }
@@ -328,7 +330,7 @@ export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps
               color: '#555',
             }}
           >
-            {trimmed ? 'time·' : 'time'}
+            {trimmed ? `${t.timeAxis}·` : t.timeAxis}
           </div>
           <div style={{ flex: 1, position: 'relative', padding: `0 ${TRACK_PAD_X}px` }}>
             {ticks.map((t, ti) => {

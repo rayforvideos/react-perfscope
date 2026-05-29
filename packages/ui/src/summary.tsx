@@ -1,6 +1,7 @@
 import { h } from 'preact'
 import type { Signal, SignalKind, WebVitalSignal } from '@react-perfscope/core'
 import { SEVERITY_COLOR, RATING_COLOR, worstSeverity, webVitalRating } from './severity'
+import { useI18n } from './i18n'
 
 interface SummaryHeaderProps {
   signals: Signal[]
@@ -62,6 +63,7 @@ function VitalChip({ s }: { s: WebVitalSignal }) {
 }
 
 export function SummaryHeader({ signals, grouped, kindsPresent, onKindClick }: SummaryHeaderProps) {
+  const { t } = useI18n()
   // Latest web-vital per name — vitals can be re-reported and the freshest
   // value is what matters in the summary.
   const latestVitals = new Map<WebVitalSignal['name'], WebVitalSignal>()
@@ -117,7 +119,7 @@ export function SummaryHeader({ signals, grouped, kindsPresent, onKindClick }: S
                   alignItems: 'center',
                   gap: '4px',
                 }}
-                title={`${list.length} ${k} signals`}
+                title={t.signalsTitle(list.length, k)}
               >
                 {sev !== 'low' && (
                   <span

@@ -1,5 +1,6 @@
 import { h } from 'preact'
 import type { WidgetPosition } from './types'
+import { useI18n } from './i18n'
 
 export interface WidgetProps {
   recording: boolean
@@ -25,6 +26,7 @@ function formatElapsed(ms: number): string {
 export function Widget(props: WidgetProps) {
   const { recording, elapsedMs = 0, onToggle, position = 'bottom-right' } = props
   const positionStyle = POSITION_STYLES[position]
+  const { t } = useI18n()
 
   return (
     <div
@@ -40,7 +42,7 @@ export function Widget(props: WidgetProps) {
       <button
         type="button"
         aria-pressed={recording}
-        aria-label={recording ? 'Stop recording' : 'Start recording'}
+        aria-label={recording ? t.stopRecording : t.startRecording}
         onClick={onToggle}
         style={{
           background: '#1a1a1a',
@@ -66,7 +68,7 @@ export function Widget(props: WidgetProps) {
           }}
         />
         <span aria-live="polite">
-          {recording ? formatElapsed(elapsedMs) : 'rec'}
+          {recording ? formatElapsed(elapsedMs) : t.rec}
         </span>
       </button>
     </div>
