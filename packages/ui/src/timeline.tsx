@@ -1,15 +1,19 @@
-import { h } from 'preact'
-import { useMemo, useState } from 'preact/hooks'
+import { h, Fragment } from 'preact'
+import { useMemo, useRef, useState } from 'preact/hooks'
 import type { Signal, SignalKind } from '@react-perfscope/core'
-import { severityForSignal, SEVERITY_COLOR } from './severity'
+import { severityForSignal, SEVERITY_OVERLAY_COLOR } from './severity'
 
 interface TimelineProps {
   signals: Signal[]
+  /** Recording duration in ms. */
   duration: number
+  /** Recording start time (performance.now() value). Used to convert
+   *  absolute signal timestamps to recording-relative ones. */
+  startedAt: number
   onJump?: (signal: Signal) => void
 }
 
-const LANE_KINDS: SignalKind[] = [
+const LANE_ORDER: SignalKind[] = [
   'long-task',
   'forced-reflow',
   'layout-shift',
@@ -18,15 +22,17 @@ const LANE_KINDS: SignalKind[] = [
   'network',
 ]
 
-interface PlottedSignal {
-  signal: Signal
-  // x in [0, 1] — fraction of duration
-  startX: number
-  // For events with duration: width as fraction; for instants: 0
-  widthX: number
+const LANE_LABELS: Record<SignalKind, string> = {
+  'long-task': 'long-task',
+  'forced-reflow': 'forced-reflow',
+  'layout-shift': 'shift',
+  'render': 'render',
+  'paint': 'paint',
+  'network': 'network',
+  'web-vital': 'web-vital',
 }
 
-function signalTime(s: Signal): number | null {
+function signalAbsoluteTime(s: Signal): number | null {
   if (s.kind === 'web-vital') return null
   if (s.kind === 'network') return s.startedAt
   return s.at
@@ -39,184 +45,337 @@ function signalDuration(s: Signal): number {
   return 0
 }
 
-function laneSignals(signals: Signal[], kind: SignalKind, duration: number): PlottedSignal[] {
-  const safeDur = Math.max(duration, 1)
-  const out: PlottedSignal[] = []
+function formatTime(ms: number): string {
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`
+  if (ms >= 1) return `${ms.toFixed(0)}ms`
+  return `${ms.toFixed(1)}ms`
+}
+
+function niceTicks(duration: number, target = 5): number[] {
+  const safe = Math.max(duration, 1)
+  const raw = safe / target
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)))
+  const norm = raw / mag
+  let step: number
+  if (norm < 1.5) step = 1 * mag
+  else if (norm < 3) step = 2 * mag
+  else if (norm < 7) step = 5 * mag
+  else step = 10 * mag
+  const ticks: number[] = []
+  for (let t = 0; t <= safe + 1e-6; t += step) ticks.push(t)
+  return ticks
+}
+
+const LANE_HEIGHT = 28
+const LABEL_COL_WIDTH = 76
+const AXIS_HEIGHT = 22
+const TRACK_PAD_X = 4
+const MIN_BAR_W = 6
+
+interface Plotted {
+  s: Signal
+  // [0, 1] left position within the track
+  startFrac: number
+  // [0, 1] width within the track (0 for instants)
+  widthFrac: number
+}
+
+function plotLane(
+  signals: Signal[],
+  kind: SignalKind,
+  duration: number,
+  startedAt: number,
+): Plotted[] {
+  const safe = Math.max(duration, 1)
+  const out: Plotted[] = []
   for (const s of signals) {
     if (s.kind !== kind) continue
-    const t = signalTime(s)
-    if (t == null) continue
+    const tAbs = signalAbsoluteTime(s)
+    if (tAbs == null) continue
+    const t = tAbs - startedAt
     const d = signalDuration(s)
-    out.push({
-      signal: s,
-      startX: Math.max(0, Math.min(1, t / safeDur)),
-      widthX: Math.max(0, Math.min(1 - t / safeDur, d / safeDur)),
-    })
+    const startFrac = Math.max(0, Math.min(1, t / safe))
+    const widthFrac = Math.max(0, Math.min(1 - startFrac, d / safe))
+    out.push({ s, startFrac, widthFrac })
   }
   return out
 }
 
-const LANE_HEIGHT = 22
-const LANE_GAP = 4
-const LABEL_WIDTH = 80
-const PADDING_X = 8
-const PADDING_Y = 8
+export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps) {
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  const [hovered, setHovered] = useState<{ s: Signal; clientX: number; clientY: number } | null>(null)
+  const [cursorFrac, setCursorFrac] = useState<number | null>(null)
 
-export function Timeline({ signals, duration, onJump }: TimelineProps) {
-  const [hovered, setHovered] = useState<{ s: Signal; x: number; y: number } | null>(null)
-  const presentLanes = LANE_KINDS.filter((k) => signals.some((s) => s.kind === k))
-  const height = PADDING_Y * 2 + presentLanes.length * (LANE_HEIGHT + LANE_GAP)
-  const safeDur = Math.max(duration, 1)
+  const presentLanes = useMemo(
+    () => LANE_ORDER.filter((k) => signals.some((s) => s.kind === k)),
+    [signals],
+  )
 
-  // Tick marks every ~quarter of the duration, rounded to a nice number
-  const ticks = useMemo(() => {
-    const target = 5
-    const raw = safeDur / target
-    const mag = Math.pow(10, Math.floor(Math.log10(raw)))
-    const step = Math.max(1, Math.round(raw / mag) * mag)
-    const result: number[] = []
-    for (let t = 0; t <= safeDur; t += step) result.push(t)
-    return result
-  }, [safeDur])
+  // Trim trailing idle. If the user finished interacting well before they
+  // stopped recording, most of the timeline would be dead space and every
+  // event would be squished into a thin band on the left. We trim to
+  // `lastEventEnd + 10%` so the meaningful window expands to fill.
+  const trimmedDur = useMemo(() => {
+    let last = 0
+    for (const s of signals) {
+      const tAbs = signalAbsoluteTime(s)
+      if (tAbs == null) continue
+      const t = tAbs - startedAt
+      const end = t + signalDuration(s)
+      if (end > last) last = end
+    }
+    if (last <= 0) return Math.max(duration, 1)
+    return Math.min(duration, last * 1.1)
+  }, [signals, duration, startedAt])
+  const safeDur = Math.max(trimmedDur, 1)
+  const trimmed = trimmedDur < duration * 0.95
+  const ticks = useMemo(() => niceTicks(safeDur), [safeDur])
 
   if (presentLanes.length === 0) {
     return (
-      <div style={{ color: '#888', padding: '20px', textAlign: 'center' }}>
+      <div style={{ color: '#888', padding: '20px', textAlign: 'center', fontSize: '11px' }}>
         No time-bound signals to plot.
       </div>
     )
   }
 
+  function handleMouseMove(e: MouseEvent) {
+    const track = trackRef.current
+    if (!track) return
+    const rect = track.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    setCursorFrac(Math.max(0, Math.min(1, x / rect.width)))
+  }
+  function handleMouseLeave() {
+    setCursorFrac(null)
+    setHovered(null)
+  }
+
+  const cursorTime = cursorFrac != null ? cursorFrac * safeDur : null
+
   return (
-    <div style={{ position: 'relative', overflowX: 'auto' }}>
-      <svg
-        width="100%"
-        viewBox={`0 0 ${100} ${height}`}
-        preserveAspectRatio="none"
-        style={{ display: 'block', width: '100%', height: `${height}px` }}
-        onMouseLeave={() => setHovered(null)}
-      >
-        {/* Tick lines */}
-        {ticks.map((t, i) => {
-          const x = PADDING_X + ((t / safeDur) * (100 - PADDING_X - 2))
-          return (
-            <line
-              key={`tick-${i}`}
-              x1={x}
-              x2={x}
-              y1={PADDING_Y}
-              y2={height - PADDING_Y}
-              stroke="#222"
-              strokeWidth="0.2"
-              vectorEffect="non-scaling-stroke"
-            />
-          )
-        })}
-
-        {/* Lanes */}
-        {presentLanes.map((kind, li) => {
-          const laneY = PADDING_Y + li * (LANE_HEIGHT + LANE_GAP)
-          const items = laneSignals(signals, kind, safeDur)
-          return (
-            <g key={kind} data-lane={kind}>
-              <rect
-                x={PADDING_X}
-                y={laneY}
-                width={100 - PADDING_X - 2}
-                height={LANE_HEIGHT}
-                fill="#161616"
-                stroke="#202020"
-                strokeWidth="0.2"
-                vectorEffect="non-scaling-stroke"
-              />
-              {items.map((p, i) => {
-                const sev = severityForSignal(p.signal)
-                const color = SEVERITY_COLOR[sev]
-                const fx = PADDING_X + p.startX * (100 - PADDING_X - 2)
-                const fw = Math.max(0.4, p.widthX * (100 - PADDING_X - 2))
-                return (
-                  <rect
-                    key={`${kind}-${i}`}
-                    x={fx}
-                    y={laneY + 4}
-                    width={fw}
-                    height={LANE_HEIGHT - 8}
-                    fill={color}
-                    opacity={sev === 'low' ? 0.6 : 0.85}
-                    rx="1"
-                    onMouseEnter={(e) => {
-                      const rect = (e.currentTarget as SVGRectElement).getBoundingClientRect()
-                      setHovered({ s: p.signal, x: rect.left + rect.width / 2, y: rect.top })
-                    }}
-                    onClick={() => onJump?.(p.signal)}
-                    style={{ cursor: onJump ? 'pointer' : 'default' }}
-                  />
-                )
-              })}
-            </g>
-          )
-        })}
-      </svg>
-
-      {/* Lane labels (HTML overlay so text doesn't stretch with viewBox) */}
+    <div
+      style={{
+        userSelect: 'none',
+        fontFamily: 'SF Mono, Menlo, Consolas, monospace',
+        fontSize: '11px',
+      }}
+    >
+      {/* Lane rows */}
       <div
-        style={{
-          position: 'absolute',
-          top: '0',
-          left: '0',
-          pointerEvents: 'none',
-          width: '100%',
-          height: '100%',
-        }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{ position: 'relative' }}
       >
+        {/* Cursor line — drawn across all lanes when hovering */}
+        {cursorFrac != null && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: `calc(${LABEL_COL_WIDTH}px + (100% - ${LABEL_COL_WIDTH}px) * ${cursorFrac})`,
+              width: '1px',
+              background: '#3b82f680',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
+        )}
+        {cursorFrac != null && cursorTime != null && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: '-14px',
+              left: `calc(${LABEL_COL_WIDTH}px + (100% - ${LABEL_COL_WIDTH}px) * ${cursorFrac})`,
+              transform: 'translateX(-50%)',
+              fontSize: '10px',
+              color: '#3b82f6',
+              background: '#0d0d0d',
+              padding: '0 4px',
+              borderRadius: '3px',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              zIndex: 2,
+            }}
+          >
+            {formatTime(cursorTime)}
+          </div>
+        )}
         {presentLanes.map((kind, li) => {
-          const top = PADDING_Y + li * (LANE_HEIGHT + LANE_GAP) + 3
+          const items = plotLane(signals, kind, safeDur, startedAt)
+          const altBg = li % 2 === 0 ? '#131313' : '#161616'
           return (
             <div
               key={kind}
+              data-lane={kind}
               style={{
-                position: 'absolute',
-                top: `${top}px`,
-                left: '4px',
-                fontSize: '10px',
-                color: '#888',
-                fontFamily: 'SF Mono, Menlo, Consolas, monospace',
-                lineHeight: `${LANE_HEIGHT - 6}px`,
-                background: '#0d0d0d',
-                padding: '0 4px',
-                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'stretch',
+                height: `${LANE_HEIGHT}px`,
+                background: altBg,
+                borderBottom: '1px solid #1c1c1c',
               }}
             >
-              {kind}
+              {/* Lane label */}
+              <div
+                style={{
+                  flex: `0 0 ${LABEL_COL_WIDTH}px`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 8px',
+                  color: '#9a9a9a',
+                  borderRight: '1px solid #1c1c1c',
+                  background: '#0f0f0f',
+                }}
+              >
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {LANE_LABELS[kind]}
+                </span>
+                <span style={{ color: '#555', fontSize: '10px', marginLeft: '4px' }}>{items.length}</span>
+              </div>
+
+              {/* Track */}
+              <div
+                ref={li === 0 ? trackRef : undefined}
+                style={{
+                  flex: 1,
+                  position: 'relative',
+                  padding: `0 ${TRACK_PAD_X}px`,
+                }}
+              >
+                {/* Tick guide lines */}
+                {ticks.map((t, ti) => {
+                  const leftPct = (t / safeDur) * 100
+                  return (
+                    <div
+                      key={`tg-${ti}`}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        left: `calc(${leftPct}% + ${TRACK_PAD_X}px)`,
+                        width: '1px',
+                        background: ti === 0 || ti === ticks.length - 1 ? 'transparent' : '#1f1f1f',
+                      }}
+                    />
+                  )
+                })}
+
+                {/* Bars */}
+                {items.map((p, i) => {
+                  const sev = severityForSignal(p.s)
+                  const color = SEVERITY_OVERLAY_COLOR[sev]
+                  const isInstant = p.widthFrac === 0
+                  const leftPct = p.startFrac * 100
+                  const widthCss = isInstant
+                    ? `${MIN_BAR_W}px`
+                    : `max(${MIN_BAR_W}px, ${(p.widthFrac * 100).toFixed(3)}%)`
+                  return (
+                    <div
+                      key={`${kind}-${i}`}
+                      onMouseEnter={(e) =>
+                        setHovered({
+                          s: p.s,
+                          clientX: (e.currentTarget as HTMLElement).getBoundingClientRect().left,
+                          clientY: (e.currentTarget as HTMLElement).getBoundingClientRect().top,
+                        })
+                      }
+                      onClick={() => onJump?.(p.s)}
+                      title={formatTime((signalAbsoluteTime(p.s) ?? startedAt) - startedAt)}
+                      style={{
+                        position: 'absolute',
+                        top: '6px',
+                        bottom: '6px',
+                        left: `calc(${leftPct}% + ${TRACK_PAD_X}px)`,
+                        width: widthCss,
+                        background: color,
+                        opacity: sev === 'low' ? 0.85 : sev === 'medium' ? 0.95 : 1,
+                        borderRadius: isInstant ? '50%' : '3px',
+                        boxShadow:
+                          sev === 'high' ? `0 0 8px ${color}cc, 0 0 0 1px ${color}` : `0 0 0 1px ${color}`,
+                        cursor: onJump ? 'pointer' : 'default',
+                        transition: 'transform 80ms ease',
+                      }}
+                    />
+                  )
+                })}
+              </div>
             </div>
           )
         })}
-        {/* Tick labels along the bottom */}
+
+        {/* Time axis */}
         <div
           style={{
-            position: 'absolute',
-            bottom: '-14px',
-            left: '0',
-            right: '0',
             display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '9px',
+            height: `${AXIS_HEIGHT}px`,
+            background: '#0f0f0f',
             color: '#666',
-            padding: '0 8px',
-            fontFamily: 'SF Mono, Menlo, Consolas, monospace',
+            fontSize: '10px',
           }}
         >
-          <span>0</span>
-          <span>{safeDur >= 1000 ? `${(safeDur / 1000).toFixed(1)}s` : `${safeDur.toFixed(0)}ms`}</span>
+          <div
+            style={{
+              flex: `0 0 ${LABEL_COL_WIDTH}px`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              padding: '0 8px',
+              borderRight: '1px solid #1c1c1c',
+              color: '#555',
+            }}
+          >
+            {trimmed ? 'time·' : 'time'}
+          </div>
+          <div style={{ flex: 1, position: 'relative', padding: `0 ${TRACK_PAD_X}px` }}>
+            {ticks.map((t, ti) => {
+              const leftPct = (t / safeDur) * 100
+              return (
+                <Fragment key={`tl-${ti}`}>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      height: '4px',
+                      width: '1px',
+                      background: '#444',
+                      left: `calc(${leftPct}% + ${TRACK_PAD_X}px)`,
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '5px',
+                      left: `calc(${leftPct}% + ${TRACK_PAD_X}px)`,
+                      transform:
+                        ti === 0
+                          ? 'translateX(0)'
+                          : ti === ticks.length - 1
+                          ? 'translateX(-100%)'
+                          : 'translateX(-50%)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {formatTime(t)}
+                  </div>
+                </Fragment>
+              )
+            })}
+          </div>
         </div>
+
       </div>
 
       {hovered && (
         <div
+          role="tooltip"
           style={{
             position: 'fixed',
-            left: `${hovered.x + 8}px`,
-            top: `${hovered.y - 28}px`,
+            left: `${hovered.clientX + 12}px`,
+            top: `${hovered.clientY - 30}px`,
             background: '#0d0d0d',
             border: '1px solid #2a2a2a',
             borderRadius: '4px',
@@ -226,31 +385,35 @@ export function Timeline({ signals, duration, onJump }: TimelineProps) {
             pointerEvents: 'none',
             zIndex: 2147483647,
             whiteSpace: 'nowrap',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           }}
         >
-          <TooltipContent s={hovered.s} />
+          <TooltipContent s={hovered.s} startedAt={startedAt} />
         </div>
       )}
     </div>
   )
 }
 
-function TooltipContent({ s }: { s: Signal }) {
+function TooltipContent({ s, startedAt }: { s: Signal; startedAt: number }) {
   const sev = severityForSignal(s)
-  const color = SEVERITY_COLOR[sev]
+  const color = SEVERITY_OVERLAY_COLOR[sev]
+  const tAbs = signalAbsoluteTime(s)
+  const t = tAbs == null ? null : tAbs - startedAt
+  const at = t == null ? '' : `@ ${formatTime(t)}`
   switch (s.kind) {
     case 'long-task':
-      return <span><strong>long-task</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> @ {s.at.toFixed(0)}ms</span>
+      return <span><strong>long-task</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> {at}</span>
     case 'forced-reflow':
-      return <span><strong>forced-reflow</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span> @ {s.at.toFixed(0)}ms</span>
+      return <span><strong>forced-reflow</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span> {at}</span>
     case 'layout-shift':
-      return <span><strong>layout-shift</strong> <span style={{ color }}>{s.value.toFixed(3)}</span> @ {s.at.toFixed(0)}ms</span>
+      return <span><strong>layout-shift</strong> <span style={{ color }}>{s.value.toFixed(3)}</span> {at}</span>
     case 'render':
-      return <span><strong>{s.component}</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span> @ {s.at.toFixed(0)}ms</span>
+      return <span><strong>{s.component}</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span> {at}</span>
     case 'paint':
-      return <span><strong>paint</strong> {s.cause} @ {s.at.toFixed(0)}ms</span>
+      return <span><strong>paint</strong> {s.cause} {at}</span>
     case 'network':
-      return <span><strong>{s.url.slice(0, 40)}</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> @ {s.startedAt.toFixed(0)}ms</span>
+      return <span><strong>{s.url.slice(0, 40)}</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> {at}</span>
     case 'web-vital':
       return null
   }

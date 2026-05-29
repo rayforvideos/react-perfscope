@@ -726,6 +726,7 @@ export function Panel(props: PanelProps) {
               <Timeline
                 signals={result.signals}
                 duration={result.duration}
+                startedAt={result.startedAt}
                 onJump={(s) => {
                   setActiveTab(s.kind)
                   const inOrder = grouped[s.kind]
