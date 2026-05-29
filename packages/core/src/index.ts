@@ -14,6 +14,8 @@ export { createForcedReflowCollector } from './collectors/forced-reflow'
 export { createLayoutShiftCollector } from './collectors/layout-shift'
 export { createNetworkCollector } from './collectors/network'
 export { createWebVitalsCollector } from './collectors/web-vitals'
+export { createHeapCollector, analyzeHeapTrend } from './collectors/heap'
+export type { HeapCollector } from './collectors/heap'
 export {
   createSelfProfilingCollector,
   attributeWindow,

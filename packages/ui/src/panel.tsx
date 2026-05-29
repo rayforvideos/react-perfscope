@@ -730,9 +730,9 @@ export function Panel(props: PanelProps) {
   const { t } = useI18n()
   const grouped = useMemo(() => groupByKind(result.signals), [result.signals])
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
-  const hasTimelineSignals = result.signals.some(
-    (s) => s.kind !== 'web-vital',
-  )
+  const hasTimelineSignals =
+    result.signals.some((s) => s.kind !== 'web-vital') ||
+    (result.heapSamples?.length ?? 0) > 0
   const [activeTab, setActiveTab] = useState<ActiveTab>(
     kindsPresent[0] ?? 'forced-reflow',
   )
@@ -946,6 +946,7 @@ export function Panel(props: PanelProps) {
                 signals={result.signals}
                 duration={result.duration}
                 startedAt={result.startedAt}
+                heapSamples={result.heapSamples}
                 onJump={(s) => {
                   setActiveTab(s.kind)
                   const inOrder = grouped[s.kind]

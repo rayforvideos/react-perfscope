@@ -116,14 +116,42 @@ export type Signal =
 
 export type SignalKind = Signal['kind']
 
+/** One heap-usage reading. `at` shares the performance.now() clock used by
+ * signal timestamps, so it lines up with the timeline x-axis. */
+export type HeapSample = {
+  at: number
+  /** usedJSHeapSize — live JS objects, in bytes. */
+  used: number
+  /** totalJSHeapSize — allocated heap, in bytes. */
+  total: number
+}
+
+export type HeapTrendClass = 'stable' | 'growing' | 'leak-suspected'
+
+export type HeapTrend = {
+  classification: HeapTrendClass
+  /** Slope of the heap "floor" (post-GC troughs), in bytes per minute. A
+   * steadily rising floor is the signal that memory is being retained. */
+  slopeBytesPerMin: number
+}
+
 export interface RecordingResult {
   signals: Signal[]
   startedAt: number
   duration: number
+  /** Heap-usage time series, present only when performance.memory is
+   * available (Chromium). Attached at finalize, not part of the signal buffer. */
+  heapSamples?: HeapSample[]
 }
 
+/** Collectors are usually keyed by the SignalKind they emit. A few (heap,
+ * self-profiling) drive a side-channel instead of emitting signals; `'heap'`
+ * widens the kind for the heap sampler, which attaches a time series via
+ * finalize rather than pushing signals. */
+export type CollectorKind = SignalKind | 'heap'
+
 export interface Collector {
-  readonly kind: SignalKind
+  readonly kind: CollectorKind
   activate(emit: (signal: Signal) => void): void
   deactivate(): void
 }

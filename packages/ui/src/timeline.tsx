@@ -1,6 +1,7 @@
 import { h, Fragment } from 'preact'
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
-import type { Signal, SignalKind } from '@react-perfscope/core'
+import type { Signal, SignalKind, HeapSample, HeapTrendClass } from '@react-perfscope/core'
+import { analyzeHeapTrend } from '@react-perfscope/core'
 import { severityForSignal, SEVERITY_OVERLAY_COLOR } from './severity'
 import { useI18n } from './i18n'
 
@@ -11,6 +12,8 @@ interface TimelineProps {
   /** Recording start time (performance.now() value). Used to convert
    *  absolute signal timestamps to recording-relative ones. */
   startedAt: number
+  /** Heap-usage series, when performance.memory was available. */
+  heapSamples?: HeapSample[]
   onJump?: (signal: Signal) => void
 }
 
@@ -213,7 +216,247 @@ function renderBreakdown(members: Signal[]): { component: string; count: number 
   return order.map((c) => ({ component: c, count: counts.get(c)! }))
 }
 
-export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps) {
+const HEAP_STRIP_H = 46
+// SVG drawn in a fixed unit box and stretched to the track width via
+// preserveAspectRatio="none", so x lines up with the signal lanes below.
+const HEAP_VB_W = 100
+const HEAP_VB_H = 100
+const HEAP_TREND_COLOR: Record<HeapTrendClass, string> = {
+  stable: '#3b82f6',
+  growing: '#f59e0b',
+  'leak-suspected': '#ef4444',
+}
+
+function formatBytes(b: number): string {
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)}MB`
+  if (b >= 1024) return `${(b / 1024).toFixed(0)}KB`
+  return `${b}B`
+}
+
+// Build the area + line SVG paths (in the unit viewBox) plus the heap range,
+// scaling `used` across [min,max] so the sawtooth fills the strip vertically.
+function buildHeapPaths(
+  samples: HeapSample[],
+  startedAt: number,
+  safeDur: number,
+): { area: string; line: string; min: number; max: number } | null {
+  if (samples.length === 0) return null
+  let lo = Infinity
+  let hi = -Infinity
+  for (const s of samples) {
+    if (s.used < lo) lo = s.used
+    if (s.used > hi) hi = s.used
+  }
+  const range = Math.max(hi - lo, 1)
+  const pts = samples.map((s) => {
+    const x = Math.max(0, Math.min(HEAP_VB_W, ((s.at - startedAt) / safeDur) * HEAP_VB_W))
+    const y = HEAP_VB_H - ((s.used - lo) / range) * HEAP_VB_H
+    return { x, y }
+  })
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ')
+  const last = pts[pts.length - 1]!
+  const first = pts[0]!
+  const area = `${line} L${last.x.toFixed(2)} ${HEAP_VB_H} L${first.x.toFixed(2)} ${HEAP_VB_H} Z`
+  return { area, line, min: lo, max: hi }
+}
+
+function HeapStrip({
+  samples,
+  startedAt,
+  safeDur,
+  trackWidth,
+  scrolls,
+}: {
+  samples: HeapSample[] | undefined
+  startedAt: number
+  safeDur: number
+  trackWidth: number
+  scrolls: boolean
+}) {
+  const { t } = useI18n()
+  const has = !!samples && samples.length > 0
+  const trend = useMemo(() => (has ? analyzeHeapTrend(samples!) : null), [samples, has])
+  const paths = useMemo(
+    () => (has ? buildHeapPaths(samples!, startedAt, safeDur) : null),
+    [samples, has, startedAt, safeDur],
+  )
+  const color = trend ? HEAP_TREND_COLOR[trend.classification] : '#3b82f6'
+  // The hint tooltip is taller than the (short) timeline scroll area, so an
+  // absolutely-positioned box gets clipped by its overflow. Render it
+  // position:fixed against the viewport instead (like the signal tooltip),
+  // anchored to the icon and clamped/flipped to stay on screen.
+  const [hintAnchor, setHintAnchor] = useState<{ left: number; top: number; bottom: number } | null>(
+    null,
+  )
+  const hintRef = useRef<HTMLDivElement | null>(null)
+  const [hintPos, setHintPos] = useState<{ left: number; top: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!hintAnchor) {
+      setHintPos(null)
+      return
+    }
+    const el = hintRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const gap = 6
+    let left = hintAnchor.left
+    if (left + r.width + 8 > vw) left = vw - r.width - 8
+    if (left < 8) left = 8
+    let top = hintAnchor.bottom + gap
+    if (top + r.height + 8 > vh) top = hintAnchor.top - r.height - gap
+    if (top < 8) top = 8
+    setHintPos({ left, top })
+  }, [hintAnchor])
+
+  return (
+    <div
+      data-heap-strip=""
+      style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        height: `${HEAP_STRIP_H}px`,
+        background: '#111',
+        borderBottom: '1px solid #1c1c1c',
+      }}
+    >
+      <div
+        style={{
+          flex: `0 0 ${LABEL_COL_WIDTH}px`,
+          minWidth: 0,
+          boxSizing: 'border-box',
+          position: 'sticky',
+          left: 0,
+          zIndex: 5,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: '2px',
+          padding: '0 8px',
+          borderRight: '1px solid #1c1c1c',
+          background: '#0f0f0f',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#9a9a9a' }}>
+          {t.heapLabel}
+          {has && (
+            <span
+              data-heap-hint=""
+              aria-label={t.heapExtensionHint}
+              onMouseEnter={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                setHintAnchor({ left: r.left, top: r.top, bottom: r.bottom })
+              }}
+              onMouseLeave={() => setHintAnchor(null)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                border: '1px solid #555',
+                color: '#888',
+                fontSize: '9px',
+                lineHeight: 1,
+                cursor: 'help',
+              }}
+            >
+              i
+            </span>
+          )}
+        </span>
+        {has && trend && (
+          <span data-heap-trend={trend.classification} style={{ color, fontSize: '10px' }}>
+            {t.heapTrendLabel(trend.classification)}
+            {trend.classification !== 'stable' &&
+              ` · +${(trend.slopeBytesPerMin / (1024 * 1024)).toFixed(1)}MB/min`}
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          flex: scrolls ? '0 0 auto' : 1,
+          width: scrolls ? `${trackWidth}px` : undefined,
+          position: 'relative',
+          padding: `0 ${TRACK_PAD_X}px`,
+        }}
+      >
+        {has && paths ? (
+          <Fragment>
+            <svg
+              width="100%"
+              height={HEAP_STRIP_H}
+              viewBox={`0 0 ${HEAP_VB_W} ${HEAP_VB_H}`}
+              preserveAspectRatio="none"
+              style={{ display: 'block' }}
+              aria-hidden="true"
+            >
+              <path d={paths.area} fill={color} fillOpacity={0.16} />
+              <path d={paths.line} fill="none" stroke={color} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+            </svg>
+            <span
+              style={{
+                position: 'absolute',
+                top: '2px',
+                right: '6px',
+                color: '#666',
+                fontSize: '10px',
+                pointerEvents: 'none',
+              }}
+            >
+              {formatBytes(paths.min)}–{formatBytes(paths.max)}
+            </span>
+          </Fragment>
+        ) : (
+          <span
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '8px',
+              transform: 'translateY(-50%)',
+              color: '#666',
+              fontSize: '10px',
+            }}
+          >
+            {t.heapUnsupported}
+          </span>
+        )}
+      </div>
+      {hintAnchor && (
+        <div
+          ref={hintRef}
+          role="tooltip"
+          style={{
+            position: 'fixed',
+            left: `${hintPos ? hintPos.left : 0}px`,
+            top: `${hintPos ? hintPos.top : 0}px`,
+            visibility: hintPos ? 'visible' : 'hidden',
+            width: '220px',
+            padding: '7px 9px',
+            background: '#0d0d0d',
+            border: '1px solid #2a2a2a',
+            borderRadius: '6px',
+            color: '#cfcfcf',
+            fontSize: '10px',
+            fontWeight: 400,
+            lineHeight: 1.5,
+            whiteSpace: 'normal',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+            zIndex: 2147483647,
+            pointerEvents: 'none',
+          }}
+        >
+          {t.heapExtensionHint}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function Timeline({ signals, duration, startedAt, heapSamples, onJump }: TimelineProps) {
   const { t } = useI18n()
   const trackRef = useRef<HTMLDivElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -287,7 +530,8 @@ export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps
   const trackWidth = Math.max(viewportTrackWidth, neededTrackWidth)
   const scrolls = viewportTrackWidth > 0 && trackWidth > viewportTrackWidth + 0.5
 
-  if (presentLanes.length === 0) {
+  const hasHeap = !!heapSamples && heapSamples.length > 0
+  if (presentLanes.length === 0 && !hasHeap) {
     return (
       <div style={{ color: '#888', padding: '20px', textAlign: 'center', fontSize: '11px' }}>
         {t.noTimeBound}
@@ -387,6 +631,13 @@ export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps
             {formatTime(cursorTime)}
           </div>
         )}
+        <HeapStrip
+          samples={heapSamples}
+          startedAt={startedAt}
+          safeDur={safeDur}
+          trackWidth={trackWidth}
+          scrolls={scrolls}
+        />
         {presentLanes.map((kind, li) => {
           const items = plotLane(signals, kind, winStart, winEnd, startedAt)
           const { bars, clusters } = clusterLane(items, CLUSTER_BIN_MS / safeDur)

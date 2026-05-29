@@ -1,6 +1,6 @@
 import { h, createContext, type ComponentChildren } from 'preact'
 import { useContext, useState, useCallback, useMemo } from 'preact/hooks'
-import type { SignalKind } from '@react-perfscope/core'
+import type { SignalKind, HeapTrendClass } from '@react-perfscope/core'
 
 export type Lang = 'en' | 'ko'
 
@@ -56,6 +56,11 @@ export interface Strings {
   // timeline
   noTimeBound: string
   timeAxis: string
+  // heap
+  heapLabel: string
+  heapUnsupported: string
+  heapExtensionHint: string
+  heapTrendLabel: (cls: HeapTrendClass) => string
   // render insights
   topRenderers: string
   moreComponents: (n: number) => string
@@ -128,6 +133,12 @@ const en: Strings = {
   signalsTitle: (n, kind) => `${n} ${kind} signals`,
   noTimeBound: 'No time-bound signals to plot.',
   timeAxis: 'time',
+  heapLabel: 'heap',
+  heapUnsupported: 'heap size unavailable (Chromium only)',
+  heapExtensionHint:
+    'Heap size includes browser extensions injected into the page (e.g. React DevTools), so it can rise even while your app is idle. For app-only measurement, record in an incognito window or a profile with extensions disabled.',
+  heapTrendLabel: (cls) =>
+    cls === 'leak-suspected' ? 'leak suspected' : cls === 'growing' ? 'growing' : 'stable',
   topRenderers: 'Top renderers · by total time',
   moreComponents: (n) => `+ ${n} more component${n === 1 ? '' : 's'}`,
   rendererDetail: (c, n, total, max) =>
@@ -205,6 +216,12 @@ const ko: Strings = {
   signalsTitle: (n, kind) => `${kind} 시그널 ${n}개`,
   noTimeBound: '표시할 시간 기반 시그널이 없어요.',
   timeAxis: '시간',
+  heapLabel: '힙',
+  heapUnsupported: '힙 측정 미지원 (크롬 전용)',
+  heapExtensionHint:
+    '힙 크기엔 페이지에 주입된 브라우저 확장(예: React DevTools) 메모리도 포함돼요. 그래서 앱이 idle이어도 올라갈 수 있어요. 앱만 정확히 재려면 시크릿 창이나 확장이 꺼진 프로필에서 녹화하세요.',
+  heapTrendLabel: (cls) =>
+    cls === 'leak-suspected' ? '누수 의심' : cls === 'growing' ? '증가 중' : '안정',
   topRenderers: '상위 렌더러 · 총 시간순',
   moreComponents: (n) => `외 컴포넌트 ${n}개 더`,
   rendererDetail: (c, n, total, max) =>

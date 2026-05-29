@@ -6,6 +6,7 @@ import {
   createNetworkCollector,
   createWebVitalsCollector,
   createSelfProfilingCollector,
+  createHeapCollector,
   createSourceMapResolver,
 } from '@react-perfscope/core'
 import { createRenderCollector, installDevToolsHook } from '@react-perfscope/react'
@@ -47,11 +48,13 @@ function bootstrap(): void {
     recorder.use(createRenderCollector())
     const selfProfiler = createSelfProfilingCollector()
     recorder.use(selfProfiler)
+    const heap = createHeapCollector()
+    recorder.use(heap)
     const resolver = createSourceMapResolver()
     mount({
       recorder,
       resolveFrame: (f) => resolver.resolve(f),
-      finalize: (result) => selfProfiler.finalize(result),
+      finalize: (result) => selfProfiler.finalize(result).then((r) => heap.finalize(r)),
     })
     g.__REACT_PERFSCOPE_AUTO_MOUNTED__ = true
   } catch (err) {
