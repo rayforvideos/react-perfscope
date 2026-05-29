@@ -111,7 +111,10 @@ export function createLayoutShiftCollector(): Collector {
           if (!active) return
           for (const raw of list.getEntries()) {
             const entry = raw as LayoutShiftEntryLike
-            if (entry.hadRecentInput) continue
+            // Note: production CLS metrics exclude shifts with hadRecentInput
+            // (user-initiated movements are considered intentional). For a
+            // dev tool, the user explicitly WANTS to see what their clicks
+            // caused — so we report these too.
             const sources = entry.sources ?? []
             if (entryIsOnlyFromPerfscope(sources)) continue
             const rects = sources.map((s) => s.currentRect)

@@ -67,7 +67,7 @@ describe('layout-shift collector', () => {
     expect(s.sources[0]).toEqual(rect)
   })
 
-  it('skips entries marked hadRecentInput: true', () => {
+  it('includes entries with hadRecentInput: true (dev tool reports all shifts)', () => {
     const collector = createLayoutShiftCollector()
     const got: Signal[] = []
     collector.activate((s) => got.push(s))
@@ -83,7 +83,7 @@ describe('layout-shift collector', () => {
     for (const { cb } of observers) {
       cb({ getEntries: () => [entry] })
     }
-    expect(got).toHaveLength(0)
+    expect(got).toHaveLength(1)
   })
 
   it('disconnects on deactivate', () => {
