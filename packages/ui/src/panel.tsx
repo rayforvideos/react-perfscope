@@ -27,6 +27,7 @@ import {
 } from './severity'
 import { SummaryHeader } from './summary'
 import { Timeline } from './timeline'
+import { RenderInsights } from './render-insights'
 
 export interface PanelProps {
   result: RecordingResult
@@ -694,6 +695,15 @@ export function Panel(props: PanelProps) {
                 }}
               />
             </div>
+          )}
+          {activeKind === 'render' && activeTab !== 'timeline' && (
+            <RenderInsights
+              signals={grouped.render.filter((s): s is RenderSignal => s.kind === 'render')}
+              onSelect={() => {
+                setGroupMode({ ...groupMode, render: 'component' })
+                setExpandedKey(null)
+              }}
+            />
           )}
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1, display: activeTab === 'timeline' ? 'none' : undefined }}>
             {activeKind && (() => {
