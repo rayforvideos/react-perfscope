@@ -10,7 +10,7 @@ describe('overlay primitive', () => {
     showOverlay('test-1', new DOMRect(10, 20, 100, 50))
     const el = document.querySelector('[data-perfscope-overlay="test-1"]') as HTMLElement
     expect(el).toBeTruthy()
-    expect(el.style.position).toBe('fixed')
+    expect(el.style.position).toBe('absolute')
     expect(el.style.left).toBe('10px')
     expect(el.style.top).toBe('20px')
     expect(el.style.width).toBe('100px')

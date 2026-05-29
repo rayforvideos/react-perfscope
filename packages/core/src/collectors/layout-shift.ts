@@ -117,7 +117,21 @@ export function createLayoutShiftCollector(): Collector {
             // caused — so we report these too.
             const sources = entry.sources ?? []
             if (entryIsOnlyFromPerfscope(sources)) continue
-            const rects = sources.map((s) => s.currentRect)
+            // Convert viewport-relative rects to document-relative coords so
+            // overlays stay anchored to the shifted DOM position when the
+            // user scrolls. Filter above runs first on viewport coords (our
+            // widget is position:fixed, lives in viewport space).
+            const sx = (typeof window !== 'undefined' && window.scrollX) || 0
+            const sy = (typeof window !== 'undefined' && window.scrollY) || 0
+            const rects = sources.map(
+              (s) =>
+                new DOMRect(
+                  s.currentRect.x + sx,
+                  s.currentRect.y + sy,
+                  s.currentRect.width,
+                  s.currentRect.height,
+                ),
+            )
             emit({
               kind: 'layout-shift',
               at: entry.startTime,

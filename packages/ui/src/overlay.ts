@@ -6,7 +6,10 @@ function getOrCreate(id: string): HTMLElement {
   if (existing) return existing as HTMLElement
   const el = document.createElement('div')
   el.setAttribute(OVERLAY_MARKER, id)
-  el.style.position = 'fixed'
+  // position:absolute (not fixed) so the highlight tracks the shifted
+  // DOM position when the user scrolls. Coordinates passed to showOverlay
+  // are document-relative (already adjusted by the layout-shift collector).
+  el.style.position = 'absolute'
   el.style.pointerEvents = 'none'
   el.style.boxSizing = 'border-box'
   el.style.border = '2px solid #ff3b30'
