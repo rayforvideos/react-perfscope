@@ -20,10 +20,10 @@ describe('Panel', () => {
       { kind: 'long-task', at: 1, duration: 100, stack: [] },
       { kind: 'render', at: 2, component: 'Foo', reason: 'commit', duration: 0 },
     ])
-    render(<Panel result={result} onClose={() => {}} />)
-    expect(screen.getByText(/forced-reflow/i)).toBeTruthy()
-    expect(screen.getByText(/long-task/i)).toBeTruthy()
-    expect(screen.getByText(/render/i)).toBeTruthy()
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    expect(container.querySelector('[data-kind="forced-reflow"]')).toBeTruthy()
+    expect(container.querySelector('[data-kind="long-task"]')).toBeTruthy()
+    expect(container.querySelector('[data-kind="render"]')).toBeTruthy()
     cleanup()
   })
 
@@ -44,7 +44,7 @@ describe('Panel', () => {
     ])
     const { container } = render(<Panel result={result} onClose={() => {}} />)
     // Default tab shows first kind (forced-reflow). Click 'render' tab.
-    fireEvent.click(screen.getByText(/render/i))
+    fireEvent.click(container.querySelector('[data-kind="render"]')!)
     expect(container.textContent).toContain('Foo')
     cleanup()
   })

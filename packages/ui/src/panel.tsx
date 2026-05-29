@@ -25,6 +25,8 @@ import {
   type Severity,
   type Rating,
 } from './severity'
+import { SummaryHeader } from './summary'
+import { Timeline } from './timeline'
 
 export interface PanelProps {
   result: RecordingResult
@@ -492,11 +494,20 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveF
   )
 }
 
+type ActiveTab = SignalKind | 'timeline'
+
 export function Panel(props: PanelProps) {
   const { result, onClose, position = 'bottom-right', resolveFrame } = props
   const grouped = useMemo(() => groupByKind(result.signals), [result.signals])
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
-  const [activeKind, setActiveKind] = useState<SignalKind | null>(kindsPresent[0] ?? null)
+  const hasTimelineSignals = result.signals.some(
+    (s) => s.kind !== 'web-vital',
+  )
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    kindsPresent[0] ?? 'forced-reflow',
+  )
+  const activeKind: SignalKind | null = activeTab === 'timeline' ? null : activeTab
+  const setActiveKind = (k: SignalKind) => setActiveTab(k)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [groupMode, setGroupMode] = useState<Partial<Record<SignalKind, GroupMode>>>({})
   const [sortMode, setSortMode] = useState<Partial<Record<SignalKind, SortMode>>>({})
@@ -574,7 +585,32 @@ export function Panel(props: PanelProps) {
 
       {kindsPresent.length > 0 && (
         <>
+          <SummaryHeader
+            signals={result.signals}
+            grouped={grouped}
+            kindsPresent={kindsPresent}
+            onKindClick={(k) => { setActiveTab(k); setExpandedKey(null) }}
+          />
           <nav style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+            {hasTimelineSignals && (
+              <button
+                key="timeline"
+                type="button"
+                data-kind="timeline"
+                onClick={() => { setActiveTab('timeline'); setExpandedKey(null) }}
+                style={{
+                  background: activeTab === 'timeline' ? '#2a2a2a' : '#1a1a1a',
+                  color: '#e6e6e6',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                }}
+              >
+                timeline
+              </button>
+            )}
             {kindsPresent.map((kind) => {
               const worst = worstSeverity(grouped[kind])
               const active = activeKind === kind
@@ -584,7 +620,7 @@ export function Panel(props: PanelProps) {
                   type="button"
                   data-kind={kind}
                   data-worst-severity={worst}
-                  onClick={() => { setActiveKind(kind); setExpandedKey(null) }}
+                  onClick={() => { setActiveTab(kind); setExpandedKey(null) }}
                   style={{
                     background: active ? '#2a2a2a' : '#1a1a1a',
                     color: '#e6e6e6',
@@ -605,7 +641,7 @@ export function Panel(props: PanelProps) {
             })}
           </nav>
 
-          {activeKind && (
+          {activeKind && activeTab !== 'timeline' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px', fontSize: '11px', color: '#888', flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 Sort
@@ -645,7 +681,21 @@ export function Panel(props: PanelProps) {
             </div>
           )}
 
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1 }}>
+          {activeTab === 'timeline' && (
+            <div style={{ flexGrow: 1, overflowY: 'auto', paddingTop: '4px', paddingBottom: '24px' }}>
+              <Timeline
+                signals={result.signals}
+                duration={result.duration}
+                onJump={(s) => {
+                  setActiveTab(s.kind)
+                  const inOrder = grouped[s.kind]
+                  const idx = inOrder.indexOf(s)
+                  if (idx >= 0) setExpandedKey(`${s.kind}-${idx}`)
+                }}
+              />
+            </div>
+          )}
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1, display: activeTab === 'timeline' ? 'none' : undefined }}>
             {activeKind && (() => {
               const baseSignals = (sortMode[activeKind] ?? 'chronological') === 'severity'
                 ? sortSignalsBySeverity(grouped[activeKind])
