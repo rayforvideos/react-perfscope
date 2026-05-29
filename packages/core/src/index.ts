@@ -14,4 +14,15 @@ export { createForcedReflowCollector } from './collectors/forced-reflow'
 export { createLayoutShiftCollector } from './collectors/layout-shift'
 export { createNetworkCollector } from './collectors/network'
 export { createWebVitalsCollector } from './collectors/web-vitals'
-export { createPaintCollector } from './collectors/paint'
+export {
+  createSelfProfilingCollector,
+  attributeWindow,
+  attributeLongTaskSignals,
+  isUserResource,
+} from './collectors/self-profiling'
+export type {
+  ProfilerTrace,
+  ProfilerFrame,
+  ProfilerStack,
+  ProfilerSample,
+} from './collectors/self-profiling'

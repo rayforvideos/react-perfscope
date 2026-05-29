@@ -7,9 +7,10 @@ import type {
   ForcedReflowSignal,
   LayoutShiftSignal,
   LongTaskSignal,
+  LongTaskAttribution,
   NetworkSignal,
-  PaintSignal,
   RenderSignal,
+  RenderReason,
   WebVitalSignal,
   StackFrame,
 } from '@react-perfscope/core'
@@ -29,7 +30,49 @@ import {
 import { SummaryHeader } from './summary'
 import { Timeline } from './timeline'
 import { RenderInsights } from './render-insights'
-import { useI18n, type Lang } from './i18n'
+import { useI18n, type Lang, type Strings } from './i18n'
+
+// Render-reason colors. `parent` is amber because it's the avoidable case —
+// the component re-rendered only because its parent did, with no prop change.
+// `state` is green: it's the intentional root of the cascade. `mount`/`props`
+// are neutral/informational.
+const RENDER_REASON_COLOR: Record<RenderReason, string> = {
+  mount: '#5ac8fa',
+  state: '#34c759',
+  props: '#8e8e93',
+  parent: '#ff9500',
+}
+
+function renderReasonLabel(t: Strings, reason: RenderReason): string {
+  switch (reason) {
+    case 'mount': return t.reasonMounted
+    case 'state': return t.reasonState
+    case 'props': return t.reasonProps
+    case 'parent': return t.reasonParent
+  }
+}
+
+function RenderReasonTag({ reason, changedProps }: { reason: RenderReason; changedProps?: string[] }) {
+  const { t } = useI18n()
+  const color = RENDER_REASON_COLOR[reason]
+  const label = renderReasonLabel(t, reason)
+  const keys = reason === 'props' && changedProps && changedProps.length > 0 ? `: ${changedProps.join(', ')}` : ''
+  return (
+    <span
+      style={{
+        color,
+        border: `1px solid ${color}`,
+        borderRadius: '4px',
+        padding: '0 5px',
+        fontSize: '10px',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}{keys}
+    </span>
+  )
+}
 
 export interface PanelProps {
   result: RecordingResult
@@ -42,7 +85,6 @@ const KIND_ORDER: SignalKind[] = [
   'forced-reflow',
   'layout-shift',
   'long-task',
-  'paint',
   'network',
   'web-vital',
   'render',
@@ -60,7 +102,6 @@ function groupByKind(signals: Signal[]): Record<SignalKind, Signal[]> {
     'forced-reflow': [] as Signal[],
     'layout-shift': [] as Signal[],
     'long-task': [] as Signal[],
-    'paint': [] as Signal[],
     'network': [] as Signal[],
     'web-vital': [] as Signal[],
     'render': [] as Signal[],
@@ -78,10 +119,11 @@ const WEB_VITAL_UNIT: Record<WebVitalSignal['name'], string> = {
 }
 
 function RatingDot({ rating }: { rating: Rating }) {
+  const { t } = useI18n()
   return (
     <span
       data-rating={rating}
-      aria-label={`rating: ${rating}`}
+      aria-label={t.ratingLabel(rating)}
       style={{
         display: 'inline-block',
         width: '8px',
@@ -121,8 +163,6 @@ function summary(s: Signal): string {
       return `@ ${s.at.toFixed(1)}ms • value ${formatCls(s.value)} • ${s.sources.length} source(s)`
     case 'long-task':
       return `@ ${s.at.toFixed(1)}ms • duration ${s.duration.toFixed(1)}ms`
-    case 'paint':
-      return `@ ${s.at.toFixed(1)}ms • ${s.cause}`
     case 'network':
       return `${s.url.length > 60 ? s.url.slice(0, 57) + '...' : s.url} • ${s.duration.toFixed(0)}ms${s.blocking ? ' • blocking' : ''}`
     case 'web-vital':
@@ -173,16 +213,6 @@ function NetworkDetail({ s }: { s: NetworkSignal }) {
   )
 }
 
-function PaintDetail({ s }: { s: PaintSignal }) {
-  const { t } = useI18n()
-  return (
-    <div style={{ paddingLeft: '12px' }}>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.at}</span><span>{s.at.toFixed(2)}ms</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.cause}</span><span>{s.cause}</span></div>
-    </div>
-  )
-}
-
 function WebVitalDetail({ s }: { s: WebVitalSignal }) {
   const { t } = useI18n()
   return (
@@ -198,7 +228,10 @@ function RenderDetail({ s }: { s: RenderSignal }) {
   return (
     <div style={{ paddingLeft: '12px' }}>
       <div style={detailRowStyle}><span style={detailLabelStyle}>{t.component}</span><span>{s.component}</span></div>
-      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.reason}</span><span>{s.reason}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.reason}</span><RenderReasonTag reason={s.reason} changedProps={s.changedProps} /></div>
+      {s.reason === 'props' && s.changedProps && s.changedProps.length > 0 && (
+        <div style={{ ...detailRowStyle, ...monoStyle }}><span style={detailLabelStyle}>{t.changedProps}</span><span>{s.changedProps.join(', ')}</span></div>
+      )}
       <div style={detailRowStyle}><span style={detailLabelStyle}>{t.duration}</span><span>{s.duration.toFixed(3)}ms</span></div>
       <div style={detailRowStyle}><span style={detailLabelStyle}>{t.at}</span><span>{s.at.toFixed(2)}ms</span></div>
     </div>
@@ -271,6 +304,51 @@ function ForcedReflowDetail({
   )
 }
 
+function HotFunctions({
+  attribution,
+  resolveFrame,
+}: {
+  attribution: LongTaskAttribution[]
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+}) {
+  const { t } = useI18n()
+  const [frames, setFrames] = useState<StackFrame[]>(attribution.map((a) => a.frame))
+
+  useEffect(() => {
+    if (!resolveFrame) return
+    let cancelled = false
+    Promise.all(attribution.map((a) => resolveFrame(a.frame)))
+      .then((resolved) => {
+        if (!cancelled) setFrames(resolved)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [attribution])
+
+  return (
+    <div style={{ marginTop: '6px' }}>
+      <div style={{ ...detailLabelStyle, textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.5px', marginBottom: '1px', color: '#ff9f0a' }}>{t.hotFunctions}</div>
+      <div style={{ color: '#666', fontSize: '10px', marginBottom: '4px' }}>{t.hotFunctionsHint}</div>
+      {attribution.map((a, i) => {
+        const f = frames[i] ?? a.frame
+        const pct = Math.round(a.selfRatio * 100)
+        return (
+          <div key={i} style={{ ...monoStyle, padding: '3px 0', borderTop: i > 0 ? '1px dashed #1f1f1f' : 'none' }}>
+            <div>
+              <span style={{ color: '#ff9f0a', fontWeight: 600 }}>{f.fnName || <span style={{ color: '#666' }}>{t.anonymous}</span>}</span>
+              <span style={{ color: SEVERITY_COLOR.medium, marginLeft: '6px' }}>{pct}%</span>
+              <span style={{ color: '#666', marginLeft: '6px' }}>({a.sampleCount})</span>
+            </div>
+            <div style={{ color: '#888', wordBreak: 'break-all' as const }}>{f.file}:{f.line}:{f.col}</div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function LongTaskDetail({
   s,
   resolveFrame,
@@ -279,12 +357,43 @@ function LongTaskDetail({
   resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
 }) {
   const { t } = useI18n()
+  const scripts = s.scripts ? [...s.scripts].sort((a, b) => b.duration - a.duration) : []
   return (
     <div style={{ paddingLeft: '12px' }}>
       <div style={detailRowStyle}><span style={detailLabelStyle}>{t.started}</span><span>{s.at.toFixed(2)}ms</span></div>
       <div style={detailRowStyle}><span style={detailLabelStyle}>{t.ended}</span><span>{(s.at + s.duration).toFixed(2)}ms</span></div>
       <div style={detailRowStyle}><span style={detailLabelStyle}>{t.duration}</span><span>{s.duration.toFixed(2)}ms</span></div>
-      {s.stack.length > 0 && (
+      {typeof s.blockingDuration === 'number' && (
+        <div style={detailRowStyle}><span style={detailLabelStyle}>{t.blockingTime}</span><span>{s.blockingDuration.toFixed(2)}ms</span></div>
+      )}
+      {s.attribution !== undefined && s.attribution.length > 0 && (
+        <HotFunctions attribution={s.attribution} resolveFrame={resolveFrame} />
+      )}
+      {s.scripts !== undefined && (
+        <div style={{ marginTop: '6px' }}>
+          <div style={{ ...detailLabelStyle, textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.5px', marginBottom: '4px' }}>{t.scripts}</div>
+          {scripts.length === 0 ? (
+            <div style={{ color: '#666' }}>{t.noScripts}</div>
+          ) : (
+            scripts.map((script, i) => (
+              <div key={i} style={{ ...monoStyle, padding: '3px 0', borderTop: i > 0 ? '1px dashed #1f1f1f' : 'none' }}>
+                <div>
+                  <span>{script.sourceFunctionName || <span style={{ color: '#666' }}>{t.anonymous}</span>}</span>
+                  <span style={{ color: '#5ac8fa', marginLeft: '6px' }}>{script.invokerType}</span>
+                  <span style={{ color: SEVERITY_COLOR.medium, marginLeft: '6px' }}>{script.duration.toFixed(1)}ms</span>
+                </div>
+                {script.sourceURL && (
+                  <div style={{ color: '#888', wordBreak: 'break-all' as const }}>
+                    {script.sourceURL}{script.charPosition >= 0 ? `@${script.charPosition}` : ''}
+                  </div>
+                )}
+                {script.invoker && <div style={{ color: '#666' }}>{t.invoker}: {script.invoker}</div>}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+      {s.scripts === undefined && s.stack.length > 0 && (
         <div style={{ marginTop: '4px' }}>
           <StackFrames raw={s.stack} resolveFrame={resolveFrame} limit={5} />
         </div>
@@ -305,17 +414,17 @@ function SignalDetail({
     case 'layout-shift': return <LayoutShiftDetail s={s} />
     case 'long-task': return <LongTaskDetail s={s} resolveFrame={resolveFrame} />
     case 'network': return <NetworkDetail s={s} />
-    case 'paint': return <PaintDetail s={s} />
     case 'web-vital': return <WebVitalDetail s={s} />
     case 'render': return <RenderDetail s={s} />
   }
 }
 
 function SeverityDot({ sev, title }: { sev: Severity; title?: string }) {
+  const { t } = useI18n()
   return (
     <span
       data-severity={sev}
-      aria-label={`severity: ${sev}`}
+      aria-label={t.severityLabel(sev)}
       title={title ?? sev}
       style={{
         display: 'inline-block',
@@ -371,8 +480,9 @@ function SummaryLine({ signal }: { signal: Signal }) {
   }
   if (signal.kind === 'render') {
     return (
-      <span>
-        <strong>{signal.component}</strong> • {signal.reason} •{' '}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <strong>{signal.component}</strong>
+        <RenderReasonTag reason={signal.reason} changedProps={signal.changedProps} />
         <span style={{ color }}>{signal.duration.toFixed(2)}ms</span>
       </span>
     )
@@ -389,8 +499,18 @@ function SummaryLine({ signal }: { signal: Signal }) {
   return <span>{summary(signal)}</span>
 }
 
-type GroupMode = 'chronological' | 'component' | 'source'
+type GroupMode = 'chronological' | 'component' | 'source' | 'commit'
 type SortMode = 'chronological' | 'severity'
+
+/** The cascade root of a commit: the component whose own state/mount started
+ * it. Falls back to the shallowest member. */
+function cascadeRootOf(list: RenderSignal[]): RenderSignal | undefined {
+  return (
+    list.find((s) => s.reason === 'state') ??
+    list.find((s) => s.reason === 'mount') ??
+    [...list].sort((a, b) => a.depth - b.depth)[0]
+  )
+}
 
 function tabSupportsGrouping(kind: SignalKind): boolean {
   return kind === 'render' || kind === 'forced-reflow'
@@ -454,6 +574,20 @@ function groupSignals(signals: Signal[], mode: GroupMode, kind: SignalKind): Sig
       .sort((a, b) => b[1].length - a[1].length)
       .map(([label, list]) => ({ label, count: list.length, signals: list }))
   }
+  if (mode === 'commit' && kind === 'render') {
+    const byCommit = new Map<number, RenderSignal[]>()
+    for (const s of signals) {
+      if (s.kind !== 'render') continue
+      if (!byCommit.has(s.commitId)) byCommit.set(s.commitId, [])
+      byCommit.get(s.commitId)!.push(s)
+    }
+    return Array.from(byCommit.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([id, list]) => {
+        const root = cascadeRootOf(list)
+        return { label: root?.component ?? `commit ${id}`, count: list.length, signals: list }
+      })
+  }
   if (mode === 'source' && kind === 'forced-reflow') {
     const bySource = new Map<string, Signal[]>()
     for (const s of signals) {
@@ -516,16 +650,47 @@ function SignalRow({ signal, expanded, onToggleExpand, onHoverGeometry, resolveF
   )
 }
 
+function CascadeMembers({ members }: { members: RenderSignal[] }) {
+  const minDepth = members.reduce((m, s) => Math.min(m, s.depth), Infinity)
+  return (
+    <div>
+      {members.map((m, i) => {
+        const indent = (m.depth - minDepth) * 14
+        const isCascade = m.reason === 'parent'
+        return (
+          <div
+            key={i}
+            style={{
+              marginLeft: `${indent}px`,
+              padding: '2px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <span style={{ color: isCascade ? RENDER_REASON_COLOR.parent : '#555' }}>
+              {m.depth > minDepth ? '└' : '•'}
+            </span>
+            <strong>{m.component}</strong>
+            <RenderReasonTag reason={m.reason} changedProps={m.changedProps} />
+            <span style={{ color: '#888' }}>{m.duration.toFixed(2)}ms</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 type ActiveTab = SignalKind | 'timeline'
 
 function LanguageToggle() {
-  const { lang, setLang } = useI18n()
+  const { lang, setLang, t } = useI18n()
   const langs: Lang[] = ['en', 'ko']
   const labels: Record<Lang, string> = { en: 'EN', ko: '한' }
   return (
     <div
       role="group"
-      aria-label="Language"
+      aria-label={t.language}
       style={{
         display: 'inline-flex',
         border: '1px solid #2a2a2a',
@@ -639,7 +804,7 @@ export function Panel(props: PanelProps) {
   }
 
   return (
-    <div role="region" aria-label="react-perfscope panel" style={panelStyle}>
+    <div role="region" aria-label={t.panelRegion} style={panelStyle}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <strong>react-perfscope</strong>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -727,8 +892,8 @@ export function Panel(props: PanelProps) {
                     gap: '6px',
                   }}
                 >
-                  {worst !== 'low' && <SeverityDot sev={worst} title={`worst: ${worst}`} />}
-                  {kind} {grouped[kind].length}
+                  {worst !== 'low' && <SeverityDot sev={worst} title={t.worstLabel(worst)} />}
+                  {t.kindLabel(kind)} {grouped[kind].length}
                 </button>
               )
             })}
@@ -766,6 +931,7 @@ export function Panel(props: PanelProps) {
                     style={{ background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}
                   >
                     <option value="chronological">{t.groupChronological}</option>
+                    {activeKind === 'render' && <option value="commit">{t.groupCommit}</option>}
                     {activeKind === 'render' && <option value="component">{t.groupComponent}</option>}
                     {activeKind === 'forced-reflow' && <option value="source">{t.groupSource}</option>}
                   </select>
@@ -821,6 +987,9 @@ export function Panel(props: PanelProps) {
               }
               const key = `${activeKind}-group-${gi}`
               const isOpen = expandedKey === key
+              const isCascade = activeKind === 'render' && currentMode === 'commit'
+              const renderMembers = g.signals.filter((s): s is RenderSignal => s.kind === 'render')
+              const unnecessary = isCascade ? renderMembers.filter((s) => s.reason === 'parent').length : 0
               return (
                 <li
                   key={key}
@@ -829,25 +998,37 @@ export function Panel(props: PanelProps) {
                   style={{
                     padding: '6px 8px',
                     borderTop: '1px solid #1a1a1a',
+                    borderLeft: unnecessary > 0 ? `3px solid ${RENDER_REASON_COLOR.parent}` : undefined,
                     fontFamily: 'SF Mono, Menlo, Consolas, monospace',
                     fontSize: '11px',
                     cursor: 'pointer',
                     userSelect: 'none' as const,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                     <span style={{ color: '#888', width: '10px' }}>{isOpen ? '▼' : '▶'}</span>
                     <span><strong>{g.label}</strong> ×{g.count}</span>
+                    {isCascade && unnecessary > 0 && (
+                      <span style={{ color: RENDER_REASON_COLOR.parent, fontSize: '10px' }}>
+                        ⚠ {t.unnecessaryRenders(unnecessary)}
+                      </span>
+                    )}
                   </div>
                   {isOpen && (
                     <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #2a2a2a', paddingLeft: '8px' }}>
-                      {g.signals.slice(0, 20).map((s, si) => (
-                        <div key={si} style={{ padding: '2px 0' }}>
-                          <SummaryLine signal={s} />
-                        </div>
-                      ))}
-                      {g.signals.length > 20 && (
-                        <div style={{ color: '#888', marginTop: '4px' }}>{t.moreItems(g.signals.length - 20)}</div>
+                      {isCascade ? (
+                        <CascadeMembers members={renderMembers} />
+                      ) : (
+                        <>
+                          {g.signals.slice(0, 20).map((s, si) => (
+                            <div key={si} style={{ padding: '2px 0' }}>
+                              <SummaryLine signal={s} />
+                            </div>
+                          ))}
+                          {g.signals.length > 20 && (
+                            <div style={{ color: '#888', marginTop: '4px' }}>{t.moreItems(g.signals.length - 20)}</div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}

@@ -25,6 +25,7 @@ function formatVitalValue(name: WebVitalSignal['name'], value: number): string {
 }
 
 function VitalChip({ s }: { s: WebVitalSignal }) {
+  const { t } = useI18n()
   const rating = webVitalRating(s.name, s.value)
   const color = RATING_COLOR[rating]
   const unit = WEB_VITAL_UNIT[s.name]
@@ -45,6 +46,7 @@ function VitalChip({ s }: { s: WebVitalSignal }) {
       }}
     >
       <span
+        aria-label={t.ratingLabel(rating)}
         style={{
           width: '6px',
           height: '6px',
@@ -119,7 +121,7 @@ export function SummaryHeader({ signals, grouped, kindsPresent, onKindClick }: S
                   alignItems: 'center',
                   gap: '4px',
                 }}
-                title={t.signalsTitle(list.length, k)}
+                title={t.signalsTitle(list.length, t.kindLabel(k))}
               >
                 {sev !== 'low' && (
                   <span
@@ -132,7 +134,7 @@ export function SummaryHeader({ signals, grouped, kindsPresent, onKindClick }: S
                     }}
                   />
                 )}
-                <span>{k}</span>
+                <span>{t.kindLabel(k)}</span>
                 <strong style={{ color }}>{list.length}</strong>
               </span>
             )

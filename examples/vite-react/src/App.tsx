@@ -156,6 +156,47 @@ function NetworkDemo() {
   )
 }
 
+function ExpensiveChild({ label }: { label: string }) {
+  // Static content — its props never change. When it re-renders anyway,
+  // that's an avoidable cascade caused by the parent.
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        background: '#fff',
+        border: '1px solid #e6e6e6',
+        borderRadius: '6px',
+        fontSize: '13px',
+      }}
+    >
+      {label} — static, never changes
+    </div>
+  )
+}
+
+function CascadeDemo() {
+  const [count, setCount] = useState(0)
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ margin: '0 0 8px' }}>7. Cascade re-render (render reason)</h2>
+      <p>
+        Only <code>count</code> changes here, but the three children below have no
+        dependency on it. Clicking re-renders all of them anyway — an avoidable cascade.
+        Group the render tab by "cascade (commit)" to see the root (state) and its
+        victims (parent) laid out as a tree.
+      </p>
+      <button type="button" style={buttonStyle} onClick={() => setCount((c) => c + 1)}>
+        increment count: {count}
+      </button>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+        <ExpensiveChild label="Child A" />
+        <ExpensiveChild label="Child B" />
+        <ExpensiveChild label="Child C" />
+      </div>
+    </div>
+  )
+}
+
 function WebVitalsNote() {
   return (
     <div style={cardStyle}>
@@ -182,6 +223,7 @@ export function App() {
       <ForcedReflowDemo />
       <LongTaskDemo />
       <NetworkDemo />
+      <CascadeDemo />
       <WebVitalsNote />
     </div>
   )

@@ -80,7 +80,7 @@ export function RenderInsights({ signals, onSelect }: RenderInsightsProps) {
                 cursor: onSelect ? 'pointer' : 'default',
                 padding: '3px 0',
               }}
-              title={`${a.component} · ${a.count} renders · total ${a.totalMs.toFixed(1)}ms · max ${a.maxMs.toFixed(1)}ms`}
+              title={t.rendererDetail(a.component, a.count, a.totalMs, a.maxMs)}
             >
               <strong style={{ flex: '0 0 30%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {a.component}

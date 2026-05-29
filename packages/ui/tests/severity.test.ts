@@ -14,7 +14,7 @@ function mkLayoutShift(value: number): Signal {
   return { kind: 'layout-shift', at: 0, value, sources: [] }
 }
 function mkRender(duration: number): Signal {
-  return { kind: 'render', at: 0, component: 'X', reason: 'r', duration }
+  return { kind: 'render', at: 0, component: 'X', reason: 'mount', commitId: 0, depth: 0, duration }
 }
 function mkNetwork(duration: number, blocking = false): Signal {
   return { kind: 'network', url: 'x', startedAt: 0, duration, size: 0, blocking }

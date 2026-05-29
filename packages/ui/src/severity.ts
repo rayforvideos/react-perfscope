@@ -74,8 +74,6 @@ export function severityForSignal(s: Signal): Severity {
       const rating = webVitalRating(s.name, s.value)
       return rating === 'poor' ? 'high' : rating === 'needs' ? 'medium' : 'low'
     }
-    case 'paint':
-      return 'low'
   }
 }
 
@@ -100,7 +98,6 @@ export const KIND_LABEL: Record<SignalKind, string> = {
   'forced-reflow': 'forced-reflow',
   'layout-shift': 'layout-shift',
   'long-task': 'long-task',
-  'paint': 'paint',
   'network': 'network',
   'web-vital': 'web-vital',
   'render': 'render',

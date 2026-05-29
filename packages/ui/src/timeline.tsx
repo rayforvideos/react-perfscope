@@ -19,19 +19,8 @@ const LANE_ORDER: SignalKind[] = [
   'forced-reflow',
   'layout-shift',
   'render',
-  'paint',
   'network',
 ]
-
-const LANE_LABELS: Record<SignalKind, string> = {
-  'long-task': 'long-task',
-  'forced-reflow': 'forced-reflow',
-  'layout-shift': 'shift',
-  'render': 'render',
-  'paint': 'paint',
-  'network': 'network',
-  'web-vital': 'web-vital',
-}
 
 function signalAbsoluteTime(s: Signal): number | null {
   if (s.kind === 'web-vital') return null
@@ -446,7 +435,7 @@ export function Timeline({ signals, duration, startedAt, onJump }: TimelineProps
                 }}
               >
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {LANE_LABELS[kind]}
+                  {t.kindLabel(kind)}
                 </span>
                 <span style={{ color: '#555', fontSize: '10px', marginLeft: '4px' }}>{items.length}</span>
               </div>
@@ -781,8 +770,6 @@ function TooltipContent({ s, startedAt }: { s: Signal; startedAt: number }) {
       return <span><strong>layout-shift</strong> <span style={{ color }}>{s.value.toFixed(3)}</span> {at}</span>
     case 'render':
       return <span><strong>{s.component}</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span> {at}</span>
-    case 'paint':
-      return <span><strong>paint</strong> {s.cause} {at}</span>
     case 'network':
       return <span><strong>{s.url.slice(0, 40)}</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> {at}</span>
     case 'web-vital':

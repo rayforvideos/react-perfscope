@@ -18,7 +18,7 @@ describe('Panel', () => {
     const result = makeResult([
       { kind: 'forced-reflow', at: 0, duration: 1, stack: [] },
       { kind: 'long-task', at: 1, duration: 100, stack: [] },
-      { kind: 'render', at: 2, component: 'Foo', reason: 'commit', duration: 0 },
+      { kind: 'render', at: 2, component: 'Foo', reason: 'mount', commitId: 0, depth: 0, duration: 0 },
     ])
     const { container } = render(<Panel result={result} onClose={() => {}} />)
     expect(container.querySelector('[data-kind="forced-reflow"]')).toBeTruthy()
@@ -40,7 +40,7 @@ describe('Panel', () => {
   it('switches the visible signal list when a tab is clicked', () => {
     const result = makeResult([
       { kind: 'forced-reflow', at: 0, duration: 1, stack: [] },
-      { kind: 'render', at: 5, component: 'Foo', reason: 'commit', duration: 0 },
+      { kind: 'render', at: 5, component: 'Foo', reason: 'mount', commitId: 0, depth: 0, duration: 0 },
     ])
     const { container } = render(<Panel result={result} onClose={() => {}} />)
     // Default tab shows first kind (forced-reflow). Click 'render' tab.
@@ -58,7 +58,7 @@ describe('Panel', () => {
 
   it('formats render signal with component name', () => {
     const result = makeResult([
-      { kind: 'render', at: 0, component: 'Header', reason: 'commit', duration: 4.2 },
+      { kind: 'render', at: 0, component: 'Header', reason: 'mount', commitId: 0, depth: 0, duration: 4.2 },
     ])
     const { container } = render(<Panel result={result} onClose={() => {}} />)
     expect(container.textContent).toContain('Header')
@@ -111,18 +111,18 @@ describe('Panel signal row expansion', () => {
 
   it('shows render reason and duration on expand', () => {
     const result = makeResult([
-      { kind: 'render', at: 0, component: 'Header', reason: 'state-change', duration: 4.2 },
+      { kind: 'render', at: 0, component: 'Header', reason: 'state', commitId: 0, depth: 0, duration: 4.2 },
     ])
     const { container } = render(<Panel result={result} onClose={() => {}} />)
     fireEvent.click(container.querySelector('li')!)
-    expect(container.textContent).toContain('state-change')
+    expect(container.textContent).toMatch(/state changed/i)
     cleanup()
   })
 
   it('only one row is expanded at a time', () => {
     const result = makeResult([
-      { kind: 'render', at: 0, component: 'A', reason: 'commit', duration: 1 },
-      { kind: 'render', at: 1, component: 'B', reason: 'commit', duration: 1 },
+      { kind: 'render', at: 0, component: 'A', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
+      { kind: 'render', at: 1, component: 'B', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
     ])
     const { container } = render(<Panel result={result} onClose={() => {}} />)
     const rows = container.querySelectorAll('li')
@@ -230,8 +230,8 @@ describe('Panel source-map resolution', () => {
 describe('Panel grouping toggle', () => {
   it('renders the grouping toggle on the render tab', () => {
     const result = makeResult([
-      { kind: 'render', at: 0, component: 'A', reason: 'commit', duration: 1 },
-      { kind: 'render', at: 1, component: 'B', reason: 'commit', duration: 1 },
+      { kind: 'render', at: 0, component: 'A', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
+      { kind: 'render', at: 1, component: 'B', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
     ])
     render(<Panel result={result} onClose={() => {}} />)
     expect(screen.queryByLabelText(/group by/i)).toBeTruthy()
@@ -240,9 +240,9 @@ describe('Panel grouping toggle', () => {
 
   it('groups render signals by component when "component" is selected', () => {
     const result = makeResult([
-      { kind: 'render', at: 0, component: 'App', reason: 'commit', duration: 1 },
-      { kind: 'render', at: 1, component: 'App', reason: 'commit', duration: 2 },
-      { kind: 'render', at: 2, component: 'Counter', reason: 'commit', duration: 1 },
+      { kind: 'render', at: 0, component: 'App', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
+      { kind: 'render', at: 1, component: 'App', reason: 'mount', commitId: 0, depth: 0, duration: 2 },
+      { kind: 'render', at: 2, component: 'Counter', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
     ])
     const { container } = render(<Panel result={result} onClose={() => {}} />)
     const select = screen.getByLabelText(/group by/i) as HTMLSelectElement
@@ -272,7 +272,7 @@ describe('Panel export', () => {
 
   it('triggers a JSON download with the recording data when Save is clicked', () => {
     const result = makeResult([
-      { kind: 'render', at: 0, component: 'X', reason: 'commit', duration: 1 },
+      { kind: 'render', at: 0, component: 'X', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
     ])
     const createObjectURLSpy = vi.fn(() => 'blob:fake')
     const revokeSpy = vi.fn()

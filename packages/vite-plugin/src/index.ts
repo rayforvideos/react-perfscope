@@ -28,19 +28,27 @@ export default function reactPerfscope(_opts?: ReactPerfscopePluginOptions): Plu
       // (and similar transforms) see them as node_modules — otherwise the
       // workspace-linked dist files get pulled through Fast Refresh, which
       // throws "can't detect preamble" because our bootstrap runs before
-      // the React plugin's preamble.
+      // the React plugin's preamble. We only list packages we expect the
+      // consumer to actually have in package.json — `react-perfscope` is
+      // the user-facing dep, `/auto` is its side-effect entry. Vite's
+      // optimizer follows transitive imports (core/react/ui) automatically.
       config.optimizeDeps ??= {}
       config.optimizeDeps.include ??= []
-      const toInclude = [
-        'react-perfscope/auto',
-        '@react-perfscope/core',
-        '@react-perfscope/react',
-        '@react-perfscope/ui',
-      ]
+      const toInclude = ['react-perfscope', 'react-perfscope/auto']
       for (const dep of toInclude) {
         if (!config.optimizeDeps.include.includes(dep)) {
           config.optimizeDeps.include.push(dep)
         }
+      }
+      // The JS Self-Profiling API (used to attribute long tasks to the
+      // developer's own functions) only initializes when the document is
+      // served with this response header. Set it for all dev responses so
+      // attribution works with zero config; it's a no-op where the browser
+      // lacks the API. We merge rather than overwrite any user-set headers.
+      config.server ??= {}
+      config.server.headers ??= {}
+      if (!('Document-Policy' in config.server.headers)) {
+        config.server.headers['Document-Policy'] = 'js-profiling'
       }
       return config
     },

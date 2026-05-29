@@ -5,7 +5,7 @@ import {
   createLayoutShiftCollector,
   createNetworkCollector,
   createWebVitalsCollector,
-  createPaintCollector,
+  createSelfProfilingCollector,
   createSourceMapResolver,
 } from '@react-perfscope/core'
 import { createRenderCollector, installDevToolsHook } from '@react-perfscope/react'
@@ -44,10 +44,15 @@ function bootstrap(): void {
     recorder.use(createLayoutShiftCollector())
     recorder.use(createNetworkCollector())
     recorder.use(createWebVitalsCollector())
-    recorder.use(createPaintCollector())
     recorder.use(createRenderCollector())
+    const selfProfiler = createSelfProfilingCollector()
+    recorder.use(selfProfiler)
     const resolver = createSourceMapResolver()
-    mount({ recorder, resolveFrame: (f) => resolver.resolve(f) })
+    mount({
+      recorder,
+      resolveFrame: (f) => resolver.resolve(f),
+      finalize: (result) => selfProfiler.finalize(result),
+    })
     g.__REACT_PERFSCOPE_AUTO_MOUNTED__ = true
   } catch (err) {
     console.warn('[react-perfscope] auto bootstrap failed:', err)

@@ -4,9 +4,9 @@ import { mountShadow } from './shadow-mount'
 import type { MountOptions, UnmountFn } from './types'
 
 export function mount(opts: MountOptions): UnmountFn {
-  const { recorder, position = 'bottom-right', host = document.body, resolveFrame } = opts
+  const { recorder, position = 'bottom-right', host = document.body, resolveFrame, finalize } = opts
   return mountShadow(
-    <App recorder={recorder} position={position} resolveFrame={resolveFrame} />,
+    <App recorder={recorder} position={position} resolveFrame={resolveFrame} finalize={finalize} />,
     { parent: host }
   )
 }

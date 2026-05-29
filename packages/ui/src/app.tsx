@@ -10,15 +10,19 @@ export interface AppProps {
   recorder: Recorder
   position?: WidgetPosition
   resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+  finalize?: (result: RecordingResult) => Promise<RecordingResult>
 }
 
 export function App(props: AppProps) {
-  const { recorder, position = 'bottom-right', resolveFrame } = props
+  const { recorder, position = 'bottom-right', resolveFrame, finalize } = props
   const [recording, setRecording] = useState(false)
   const [result, setResult] = useState<RecordingResult | null>(null)
   const [elapsedMs, setElapsedMs] = useState(0)
   const startedAtRef = useRef<number>(0)
   const rafRef = useRef<number | null>(null)
+  // Bumped on every stop; lets a slow finalize drop its result if the user
+  // has already started a new recording.
+  const resultTokenRef = useRef<number>(0)
 
   useEffect(() => {
     if (!recording) {
@@ -44,8 +48,16 @@ export function App(props: AppProps) {
       setRecording(true)
     } else {
       const r = recorder.stop()
+      const token = ++resultTokenRef.current
       setRecording(false)
       setResult(r)
+      if (finalize) {
+        finalize(r)
+          .then((enriched) => {
+            if (resultTokenRef.current === token) setResult(enriched)
+          })
+          .catch(() => {})
+      }
     }
   }
 

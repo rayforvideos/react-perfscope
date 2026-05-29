@@ -1,13 +1,15 @@
 import { h, createContext, type ComponentChildren } from 'preact'
 import { useContext, useState, useCallback, useMemo } from 'preact/hooks'
+import type { SignalKind } from '@react-perfscope/core'
 
 export type Lang = 'en' | 'ko'
 
 export const STORAGE_KEY = 'react-perfscope-lang'
 
-// Only descriptive UI chrome is translated. Signal-kind identifiers
-// (forced-reflow, layout-shift, …), web-vital metric names (LCP, INP, …),
-// and units (ms, KB) stay as-is — they are standard web-perf terms.
+// Signal-kind *identifiers* (forced-reflow, layout-shift, …) stay as-is in
+// data attributes and internal logic, but their *display* labels go through
+// `kindLabel`. Web-vital metric names (LCP, INP, …) and units (ms, KB) are
+// never translated — they are standard web-perf terms.
 export interface Strings {
   save: string
   saveAria: string
@@ -21,6 +23,7 @@ export interface Strings {
   groupChronological: string
   groupComponent: string
   groupSource: string
+  groupCommit: string
   timeline: string
   // detail labels
   value: string
@@ -32,7 +35,6 @@ export interface Strings {
   metric: string
   component: string
   reason: string
-  cause: string
   at: string
   ended: string
   yes: string
@@ -57,6 +59,31 @@ export interface Strings {
   // render insights
   topRenderers: string
   moreComponents: (n: number) => string
+  rendererDetail: (component: string, count: number, totalMs: number, maxMs: number) => string
+  // aria / tooltips
+  language: string
+  panelRegion: string
+  ratingLabel: (rating: string) => string
+  severityLabel: (sev: string) => string
+  worstLabel: (sev: string) => string
+  // signal-kind display label (identifier stays in data attrs / logic)
+  kindLabel: (kind: SignalKind) => string
+  // render reasons
+  reasonMounted: string
+  reasonState: string
+  reasonProps: string
+  reasonParent: string
+  cascadeRoot: string
+  changedProps: string
+  unnecessaryRenders: (n: number) => string
+  // long-task scripts
+  scripts: string
+  invoker: string
+  source: string
+  blockingTime: string
+  noScripts: string
+  hotFunctions: string
+  hotFunctionsHint: string
 }
 
 const en: Strings = {
@@ -72,6 +99,7 @@ const en: Strings = {
   groupChronological: 'chronological',
   groupComponent: 'component',
   groupSource: 'source',
+  groupCommit: 'cascade (commit)',
   timeline: 'timeline',
   value: 'value',
   started: 'started',
@@ -82,7 +110,6 @@ const en: Strings = {
   metric: 'metric',
   component: 'component',
   reason: 'reason',
-  cause: 'cause',
   at: 'at',
   ended: 'ended',
   yes: 'yes',
@@ -103,6 +130,37 @@ const en: Strings = {
   timeAxis: 'time',
   topRenderers: 'Top renderers · by total time',
   moreComponents: (n) => `+ ${n} more component${n === 1 ? '' : 's'}`,
+  rendererDetail: (c, n, total, max) =>
+    `${c} · ${n} renders · total ${total.toFixed(1)}ms · max ${max.toFixed(1)}ms`,
+  language: 'Language',
+  panelRegion: 'react-perfscope panel',
+  ratingLabel: (rating) => `rating: ${rating}`,
+  severityLabel: (sev) => `severity: ${sev}`,
+  worstLabel: (sev) => `worst: ${sev}`,
+  kindLabel: (kind) => kind,
+  reasonMounted: 'mounted',
+  reasonState: 'state changed',
+  reasonProps: 'props changed',
+  reasonParent: 'parent re-rendered',
+  cascadeRoot: 'root',
+  changedProps: 'changed',
+  unnecessaryRenders: (n) => `${n} unnecessary render${n === 1 ? '' : 's'} (parent-driven)`,
+  scripts: 'scripts',
+  invoker: 'invoker',
+  source: 'source',
+  blockingTime: 'blocking',
+  noScripts: 'No script attribution (LoAF unsupported).',
+  hotFunctions: 'your hot functions',
+  hotFunctionsHint: 'sampled time spent in your own source',
+}
+
+const KIND_LABELS_KO: Record<SignalKind, string> = {
+  render: '렌더',
+  'layout-shift': '레이아웃 이동',
+  'long-task': '긴 작업',
+  'forced-reflow': '강제 리플로우',
+  network: '네트워크',
+  'web-vital': '웹 바이탈',
 }
 
 const ko: Strings = {
@@ -118,6 +176,7 @@ const ko: Strings = {
   groupChronological: '시간순',
   groupComponent: '컴포넌트',
   groupSource: '소스',
+  groupCommit: '연쇄 (커밋)',
   timeline: '타임라인',
   value: '값',
   started: '시작',
@@ -128,7 +187,6 @@ const ko: Strings = {
   metric: '지표',
   component: '컴포넌트',
   reason: '원인',
-  cause: '원인',
   at: '시점',
   ended: '종료',
   yes: '예',
@@ -149,6 +207,28 @@ const ko: Strings = {
   timeAxis: '시간',
   topRenderers: '상위 렌더러 · 총 시간순',
   moreComponents: (n) => `외 컴포넌트 ${n}개 더`,
+  rendererDetail: (c, n, total, max) =>
+    `${c} · 렌더 ${n}회 · 총 ${total.toFixed(1)}ms · 최대 ${max.toFixed(1)}ms`,
+  language: '언어',
+  panelRegion: 'react-perfscope 패널',
+  ratingLabel: (rating) => `평가: ${rating}`,
+  severityLabel: (sev) => `심각도: ${sev}`,
+  worstLabel: (sev) => `가장 심각: ${sev}`,
+  kindLabel: (kind) => KIND_LABELS_KO[kind],
+  reasonMounted: '마운트됨',
+  reasonState: 'state 변경',
+  reasonProps: 'props 변경',
+  reasonParent: '부모 따라 리렌더',
+  cascadeRoot: '시작점',
+  changedProps: '변경된 props',
+  unnecessaryRenders: (n) => `불필요한 리렌더 ${n}개 (부모 때문에)`,
+  scripts: '스크립트',
+  invoker: '호출자',
+  source: '소스',
+  blockingTime: '차단 시간',
+  noScripts: '스크립트 출처 없음 (LoAF 미지원).',
+  hotFunctions: '내 코드 핫스팟',
+  hotFunctionsHint: '내 소스에서 샘플링된 점유 시간',
 }
 
 export const STRINGS: Record<Lang, Strings> = { en, ko }

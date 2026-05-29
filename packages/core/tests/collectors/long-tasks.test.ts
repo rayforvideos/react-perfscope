@@ -86,3 +86,79 @@ describe('long-tasks collector', () => {
     expect(() => collector.deactivate()).not.toThrow()
   })
 })
+
+describe('long-tasks collector with LoAF support', () => {
+  beforeEach(() => {
+    ;(FakeObserver as unknown as { supportedEntryTypes: string[] }).supportedEntryTypes = [
+      'longtask',
+      'long-animation-frame',
+    ]
+  })
+
+  afterEach(() => {
+    delete (FakeObserver as unknown as { supportedEntryTypes?: string[] }).supportedEntryTypes
+  })
+
+  function fireLoAF(entry: Record<string, unknown>) {
+    const list = {
+      getEntries: () => [
+        { entryType: 'long-animation-frame', startTime: 0, duration: 0, name: '', ...entry } as unknown as PerformanceEntry,
+      ],
+    }
+    for (const { cb, opts } of observers) {
+      if (opts.type === 'long-animation-frame' || opts.entryTypes?.includes('long-animation-frame')) {
+        cb(list)
+      }
+    }
+  }
+
+  it('observes long-animation-frame when supported', () => {
+    const collector = createLongTasksCollector()
+    collector.activate(() => {})
+    const opts = observers[0]!.opts
+    const observed = (opts.type ?? opts.entryTypes?.[0]) as string
+    expect(observed).toBe('long-animation-frame')
+  })
+
+  it('maps scripts[] into the signal', () => {
+    const collector = createLongTasksCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    fireLoAF({
+      startTime: 200,
+      duration: 130,
+      blockingDuration: 80,
+      scripts: [
+        {
+          duration: 120,
+          invoker: 'BUTTON#go.onclick',
+          invokerType: 'event-listener',
+          sourceURL: 'http://app/src/App.tsx',
+          sourceFunctionName: 'handleClick',
+          sourceCharPosition: 1234,
+        },
+      ],
+    })
+    const s = got[0] as LongTaskSignal
+    expect(s.duration).toBe(130)
+    expect(s.blockingDuration).toBe(80)
+    expect(s.scripts).toHaveLength(1)
+    expect(s.scripts![0]).toMatchObject({
+      invokerType: 'event-listener',
+      invoker: 'BUTTON#go.onclick',
+      sourceURL: 'http://app/src/App.tsx',
+      sourceFunctionName: 'handleClick',
+      charPosition: 1234,
+      duration: 120,
+    })
+  })
+
+  it('emits an empty scripts array when LoAF reports none', () => {
+    const collector = createLongTasksCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    fireLoAF({ startTime: 10, duration: 60 })
+    const s = got[0] as LongTaskSignal
+    expect(s.scripts).toEqual([])
+  })
+})

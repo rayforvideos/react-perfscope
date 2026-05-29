@@ -1,4 +1,4 @@
-import type { Recorder, StackFrame } from '@react-perfscope/core'
+import type { Recorder, RecordingResult, StackFrame } from '@react-perfscope/core'
 
 export type WidgetPosition =
   | 'bottom-right'
@@ -22,6 +22,13 @@ export interface MountOptions {
    * Defaults to a no-op if not provided.
    */
   resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+  /**
+   * Optional async post-processor run after `recorder.stop()`. The Panel
+   * renders the raw result immediately, then re-renders with the resolved
+   * value (e.g. self-profiling long-task attribution, which only becomes
+   * available once the Profiler trace settles).
+   */
+  finalize?: (result: RecordingResult) => Promise<RecordingResult>
 }
 
 export type UnmountFn = () => void
