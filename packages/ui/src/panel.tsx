@@ -20,6 +20,7 @@ import {
   worstSeverity,
   webVitalRating,
   SEVERITY_COLOR,
+  SEVERITY_OVERLAY_COLOR,
   RATING_COLOR,
   severityRank,
   type Severity,
@@ -538,8 +539,8 @@ export function Panel(props: PanelProps) {
       return
     }
     const sev = severityForSignal(signal)
-    const color = SEVERITY_COLOR[sev]
-    const fillAlpha = sev === 'high' ? 0.18 : sev === 'medium' ? 0.14 : 0.1
+    const color = SEVERITY_OVERLAY_COLOR[sev]
+    const fillAlpha = sev === 'high' ? 0.2 : sev === 'medium' ? 0.16 : 0.14
     const fillRgba = hexToRgba(color, fillAlpha)
     signal.sources.forEach((r, i) => {
       // Skip sources with no current geometry — these typically represent

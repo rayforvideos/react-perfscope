@@ -9,6 +9,19 @@ export const SEVERITY_COLOR: Record<Severity, string> = {
   high: '#ff3b30',
 }
 
+/**
+ * Brighter palette used for overlays drawn on top of the page. The
+ * row-/tab-level `SEVERITY_COLOR.low` (#666) is intentionally muted
+ * for in-panel chrome, but on the live page that gray vanishes against
+ * normal page contents. Overlays use saturated hues so the shifted
+ * region is always visible, regardless of severity bucket.
+ */
+export const SEVERITY_OVERLAY_COLOR: Record<Severity, string> = {
+  low: '#3b82f6',
+  medium: '#ff9500',
+  high: '#ff3b30',
+}
+
 export const RATING_COLOR: Record<Rating, string> = {
   good: '#34c759',
   needs: '#ff9500',
