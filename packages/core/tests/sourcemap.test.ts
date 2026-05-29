@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseStack, resolveFrame } from '../src/sourcemap'
-import type { RawSourceMap } from 'source-map'
+import { parseStack, resolveFrame, type RawSourceMap } from '../src/sourcemap'
 
 describe('parseStack', () => {
   it('parses V8/Chrome stack format', () => {

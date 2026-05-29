@@ -1,8 +1,11 @@
-import { SourceMapConsumer, type RawSourceMap } from 'source-map'
+import { TraceMap, originalPositionFor, type SourceMapInput } from '@jridgewell/trace-mapping'
 import type { StackFrame } from './types'
 
 const CHROME_FRAME = /^\s*at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?$/
 const FIREFOX_FRAME = /^(.*?)@(.+?):(\d+):(\d+)$/
+
+/** A parsed source map (the JSON object), as returned by a FetchMap. */
+export type RawSourceMap = SourceMapInput
 
 export type FetchMap = (file: string) => Promise<RawSourceMap | null>
 
@@ -13,26 +16,22 @@ export async function resolveFrame(
   try {
     const map = await fetchMap(frame.file)
     if (!map) return frame
-    const consumer = await new SourceMapConsumer(map)
-    try {
-      const pos = consumer.originalPositionFor({
-        line: frame.line,
-        column: frame.col,
-      })
-      if (pos.source == null || pos.line == null || pos.column == null) {
-        return frame
-      }
-      const resolved: StackFrame = {
-        file: pos.source,
-        line: pos.line,
-        col: pos.column,
-      }
-      if (pos.name) resolved.fnName = pos.name
-      else if (frame.fnName) resolved.fnName = frame.fnName
-      return resolved
-    } finally {
-      consumer.destroy()
+    // trace-mapping is pure JS (no wasm), so this works in the browser where
+    // Mozilla's source-map SourceMapConsumer needs an explicitly-initialized
+    // mappings.wasm. Columns are 0-based here, matching the captured frames.
+    const tracer = new TraceMap(map)
+    const pos = originalPositionFor(tracer, { line: frame.line, column: frame.col })
+    if (pos.source == null || pos.line == null || pos.column == null) {
+      return frame
     }
+    const resolved: StackFrame = {
+      file: pos.source,
+      line: pos.line,
+      col: pos.column,
+    }
+    if (pos.name) resolved.fnName = pos.name
+    else if (frame.fnName) resolved.fnName = frame.fnName
+    return resolved
   } catch (err) {
     console.warn('[react-perfscope] resolveFrame failed:', err)
     return frame
