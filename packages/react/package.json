@@ -1,6 +1,15 @@
 {
   "name": "@react-perfscope/react",
   "version": "0.1.0",
+  "description": "React render-cascade collector for react-perfscope: per-commit render reasons with source attribution.",
+  "keywords": [
+    "react",
+    "performance",
+    "profiler",
+    "render",
+    "re-render",
+    "devtools"
+  ],
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -33,5 +42,16 @@
     "@types/react-dom": "^18.3.0",
     "@testing-library/react": "^16.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "rayforvideos",
+  "homepage": "https://github.com/rayforvideos/react-perfscope#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rayforvideos/react-perfscope.git",
+    "directory": "packages/react"
+  },
+  "bugs": "https://github.com/rayforvideos/react-perfscope/issues",
+  "publishConfig": {
+    "access": "public"
+  }
 }
