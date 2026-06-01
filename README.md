@@ -52,7 +52,7 @@ Published on npm (`0.2.0`). Compatible with React 18 & 19, Vite 5–8, and webpa
 
 ```sh
 pnpm install
-pnpm test          # vitest, 135 tests
+pnpm test          # vitest, 242 tests
 pnpm typecheck     # tsc --noEmit per package
 pnpm build         # tsup per package (filtered to packages/*)
 ```
@@ -119,7 +119,7 @@ npm 게시됨 (`0.2.0`). React 18·19, Vite 5–8, webpack 5 호환. 프로덕�
 
 ```sh
 pnpm install
-pnpm test          # vitest, 135 tests
+pnpm test          # vitest, 242 tests
 pnpm typecheck     # 패키지별 tsc --noEmit
 pnpm build         # 패키지별 tsup (packages/*만 필터링)
 ```
