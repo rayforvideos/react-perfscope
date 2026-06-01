@@ -99,6 +99,7 @@ export interface Strings {
   inputDelay: string
   processingTime: string
   presentation: string
+  interactionThresholdHint: string
 }
 
 const en: Strings = {
@@ -181,6 +182,7 @@ const en: Strings = {
   inputDelay: 'input delay',
   processingTime: 'processing',
   presentation: 'presentation',
+  interactionThresholdHint: 'Only interactions ≥40ms are shown — INP surfaces the slow ones; fast clicks are omitted.',
 }
 
 const KIND_LABELS_KO: Record<SignalKind, string> = {
@@ -273,6 +275,7 @@ const ko: Strings = {
   inputDelay: '입력 지연',
   processingTime: '처리',
   presentation: '화면 반영',
+  interactionThresholdHint: '40ms 이상 걸린 상호작용만 표시돼요 — 느린 것만 INP로 잡고, 빠른 클릭은 생략해요.',
 }
 
 export const STRINGS: Record<Lang, Strings> = { en, ko }

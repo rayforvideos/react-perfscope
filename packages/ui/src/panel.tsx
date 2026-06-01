@@ -1014,6 +1014,21 @@ export function Panel(props: PanelProps) {
               }}
             />
           )}
+          {activeKind === 'interaction' && activeTab !== 'timeline' && (
+            <div
+              style={{
+                padding: '6px 8px',
+                marginBottom: '6px',
+                fontSize: '11px',
+                color: '#888',
+                background: '#141414',
+                border: '1px solid #1f1f1f',
+                borderRadius: '6px',
+              }}
+            >
+              {t.interactionThresholdHint}
+            </div>
+          )}
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1, display: activeTab === 'timeline' ? 'none' : undefined }}>
             {activeKind && (() => {
               const baseSignals = (sortMode[activeKind] ?? 'chronological') === 'severity'
