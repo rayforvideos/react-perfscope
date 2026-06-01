@@ -48,6 +48,17 @@ This is a pnpm monorepo. Six published packages:
 
 Published on npm (`0.3.0`). Compatible with React 18 & 19, Vite 5–8, and webpack 5. Production-safe: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
 
+## Does it skew the numbers it reports?
+
+react-perfscope instruments in-band — it runs on the same main thread as your code — so its own cost can't simply be subtracted out afterward. Instead the design keeps that cost low enough to ignore, and excludes the tool's own activity from the results. Some measurements (headless Chromium, the `examples/vite-react` app; indicative, not guarantees):
+
+- **Idle is silent.** Recording an idle app for a few seconds produces zero forced-reflow / render / layout-shift / long-task / network signals — only genuine web vitals. There is no phantom noise floor from the tool itself.
+- **Forced reflow.** On a pathological layout-thrash loop — 5,000 reads where *every* read forces a synchronous layout — recording added roughly **1–2µs per read** (~30ms → ~38ms). Real code forces layout far less often, so the real-world cost is much smaller. All reads in one synchronous turn are coalesced into a single signal, so the call stack is captured **once per turn**, not per read.
+- **React renders.** Per commit the collector adds about **0.01ms** for a typical commit (a handful of components). Even a pathological re-render of **800 components** costs about **0.5ms**, because the whole commit is coalesced into one signal (down from ~6ms before per-commit coalescing landed in 0.3.0).
+- **The tool excludes itself.** Its own stack frames are filtered out of long-task hot-function attribution, and its own network requests (source-map fetches) are dropped from network signals — so you never see react-perfscope blamed for your app's time.
+
+And none of this ships to production: the auto bootstrap and build plugins disable themselves outside dev.
+
 ## Development
 
 ```sh
@@ -114,6 +125,17 @@ pnpm 모노레포입니다. 6개 published 패키지:
 ## 상태
 
 npm 게시됨 (`0.3.0`). React 18·19, Vite 5–8, webpack 5 호환. 프로덕션 안전성: `NODE_ENV === 'production'`이면 auto 부트스트랩이 자동으로 빠지고, 빌드 플러그인도 dev 모드 외에는 no-op입니다.
+
+## 측정 자체를 왜곡하지 않나요?
+
+react-perfscope는 인-밴드로 계측합니다 — 사용자 코드와 같은 메인 스레드에서 돌기 때문에, 도구 자신의 비용을 사후에 단순히 빼낼 수 없습니다. 그래서 그 비용을 무시할 수 있을 만큼 낮게 유지하고, 도구 자신의 활동은 결과에서 제외하는 방향으로 설계했습니다. 실측치 일부 (헤드리스 Chromium, `examples/vite-react` 앱 기준 — 보장이 아니라 참고용):
+
+- **유휴 상태는 조용합니다.** 아무 조작 없이 몇 초 녹화하면 forced-reflow / render / layout-shift / long-task / network 신호가 0건이고, 진짜 web vitals만 잡힙니다. 도구가 만들어내는 노이즈 바닥이 없습니다.
+- **강제 리플로우.** 모든 읽기가 동기 레이아웃을 강제하는 병적인 thrash 루프(읽기 5,000회)에서 녹화는 **읽기당 약 1–2µs**를 더했습니다 (~30ms → ~38ms). 실제 코드는 레이아웃을 훨씬 덜 강제하므로 실사용 비용은 훨씬 작습니다. 한 동기 턴의 모든 읽기는 한 신호로 합쳐지므로 콜 스택은 **턴당 1회만** 캡처합니다 (읽기마다가 아님).
+- **React 렌더.** 일반 커밋(컴포넌트 몇 개)은 커밋당 약 **0.01ms**를 더합니다. 병적으로 **800개 컴포넌트**가 리렌더되는 커밋도 약 **0.5ms**인데, 커밋 전체가 한 신호로 합쳐지기 때문입니다 (0.3.0의 커밋당 코얼레싱 전에는 ~6ms였음).
+- **도구는 자기 자신을 제외합니다.** long-task 핫펑션 attribution에서 도구 자신의 스택 프레임을 걸러내고, 도구 자신의 네트워크 요청(소스맵 fetch)도 network 신호에서 제외합니다 — 그래서 앱의 시간이 react-perfscope 탓으로 잡히는 일이 없습니다.
+
+그리고 이 중 어떤 것도 프로덕션에 실리지 않습니다: auto 부트스트랩과 빌드 플러그인은 dev 밖에서 스스로 비활성화됩니다.
 
 ## 개발
 
