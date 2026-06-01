@@ -46,7 +46,7 @@ This is a pnpm monorepo. Six published packages:
 
 ## Status
 
-Pre-publish (`0.1.0`). All 135 tests pass; all 6 packages typecheck and build cleanly. Production safety: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
+Published on npm (`0.2.0`). Compatible with React 18 & 19, Vite 5–8, and webpack 5. Production-safe: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
 
 ## Development
 
@@ -113,7 +113,7 @@ pnpm 모노레포입니다. 6개 published 패키지:
 
 ## 상태
 
-배포 직전 (`0.1.0`). 135개 테스트 모두 통과; 6개 패키지 모두 typecheck/build 클린. 프로덕션 안전성: `NODE_ENV === 'production'`이면 auto 부트스트랩이 자동으로 빠지고, 빌드 플러그인도 dev 모드 외에는 no-op입니다.
+npm 게시됨 (`0.2.0`). React 18·19, Vite 5–8, webpack 5 호환. 프로덕션 안전성: `NODE_ENV === 'production'`이면 auto 부트스트랩이 자동으로 빠지고, 빌드 플러그인도 dev 모드 외에는 no-op입니다.
 
 ## 개발
 
