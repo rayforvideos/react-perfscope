@@ -1,5 +1,6 @@
 import { TraceMap, originalPositionFor, type SourceMapInput } from '@jridgewell/trace-mapping'
 import type { StackFrame } from './types'
+import { markSelfRequest } from './self-requests'
 
 const CHROME_FRAME = /^\s*at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?$/
 const FIREFOX_FRAME = /^(.*?)@(.+?):(\d+):(\d+)$/
@@ -94,6 +95,7 @@ export function createSourceMapResolver(opts: CreateSourceMapResolverOptions = {
     if (existing) return existing
     const promise = (async () => {
       try {
+        markSelfRequest(sourceUrl)
         const res = await f(sourceUrl)
         if (!res || !res.ok) return null
         const text = await res.text()
@@ -114,6 +116,7 @@ export function createSourceMapResolver(opts: CreateSourceMapResolverOptions = {
           return JSON.parse(decoded) as RawSourceMap
         }
         const mapUrl = new URL(ref, sourceUrl).href
+        markSelfRequest(mapUrl)
         const mapRes = await f(mapUrl)
         if (!mapRes || !mapRes.ok) return null
         return (await mapRes.json()) as RawSourceMap

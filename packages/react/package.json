@@ -1,6 +1,6 @@
 {
   "name": "@react-perfscope/react",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "React render collector for react-perfscope.",
   "keywords": [
     "react",

@@ -49,7 +49,9 @@ describe('Recorder + render collector integration', () => {
 
     const result = recorder.stop()
     const renders = result.signals.filter((s: Signal) => s.kind === 'render') as RenderSignal[]
-    const names = renders.map((s) => s.component)
+    // One coalesced signal for the commit; its members cover the components.
+    expect(renders).toHaveLength(1)
+    const names = (renders[0]!.members ?? []).map((m) => m.component)
     expect(names).toContain('App')
     expect(names).toContain('Header')
   })

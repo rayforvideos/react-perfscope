@@ -173,7 +173,7 @@ function summary(s: Signal): string {
     case 'web-vital':
       return `${s.name}: ${s.value.toFixed(2)}`
     case 'render':
-      return `${s.component} • ${s.reason} • ${s.duration.toFixed(2)}ms`
+      return `${s.component} • ${s.reason} • ${s.duration.toFixed(2)}ms${s.count && s.count > 1 ? ` • ${s.count} components` : ''}`
   }
 }
 
@@ -230,6 +230,16 @@ function WebVitalDetail({ s }: { s: WebVitalSignal }) {
 
 function RenderDetail({ s }: { s: RenderSignal }) {
   const { t } = useI18n()
+  // Commit signal (carries members): show the whole cascade.
+  if (s.members && s.members.length > 0) {
+    return (
+      <div style={{ paddingLeft: '12px' }}>
+        <div style={detailRowStyle}><span style={detailLabelStyle}>{t.duration}</span><span>{s.duration.toFixed(3)}ms</span></div>
+        <div style={detailRowStyle}><span style={detailLabelStyle}>{t.at}</span><span>{s.at.toFixed(2)}ms</span></div>
+        <div style={{ marginTop: '6px' }}><CascadeMembers members={s.members} /></div>
+      </div>
+    )
+  }
   return (
     <div style={{ paddingLeft: '12px' }}>
       <div style={detailRowStyle}><span style={detailLabelStyle}>{t.component}</span><span>{s.component}</span></div>
@@ -509,10 +519,14 @@ function SummaryLine({ signal }: { signal: Signal }) {
     )
   }
   if (signal.kind === 'forced-reflow') {
+    const count = signal.count ?? 1
     return (
       <span>
         @ {signal.at.toFixed(1)}ms • duration{' '}
         <span style={{ color }}>{signal.duration.toFixed(2)}ms</span>
+        {count > 1 && (
+          <span style={{ color: '#888' }}> • {t.coalescedReads(count)}</span>
+        )}
       </span>
     )
   }
@@ -531,6 +545,9 @@ function SummaryLine({ signal }: { signal: Signal }) {
         <strong>{signal.component}</strong>
         <RenderReasonTag reason={signal.reason} changedProps={signal.changedProps} />
         <span style={{ color }}>{signal.duration.toFixed(2)}ms</span>
+        {signal.count && signal.count > 1 && (
+          <span style={{ color: '#888' }}>{t.cascadeComponents(signal.count)}</span>
+        )}
       </span>
     )
   }
@@ -548,16 +565,6 @@ function SummaryLine({ signal }: { signal: Signal }) {
 
 type GroupMode = 'chronological' | 'component' | 'source' | 'commit'
 type SortMode = 'chronological' | 'severity'
-
-/** The cascade root of a commit: the component whose own state/mount started
- * it. Falls back to the shallowest member. */
-function cascadeRootOf(list: RenderSignal[]): RenderSignal | undefined {
-  return (
-    list.find((s) => s.reason === 'state') ??
-    list.find((s) => s.reason === 'mount') ??
-    [...list].sort((a, b) => a.depth - b.depth)[0]
-  )
-}
 
 function tabSupportsGrouping(kind: SignalKind): boolean {
   return kind === 'render' || kind === 'forced-reflow'
@@ -611,28 +618,27 @@ function groupSignals(signals: Signal[], mode: GroupMode, kind: SignalKind): Sig
   }
   if (mode === 'component' && kind === 'render') {
     const byName = new Map<string, Signal[]>()
+    // Render signals are coalesced per commit; expand members back to
+    // per-component rows for this view.
     for (const s of signals) {
       if (s.kind !== 'render') continue
-      const k = s.component
-      if (!byName.has(k)) byName.set(k, [])
-      byName.get(k)!.push(s)
+      for (const m of s.members ?? [s]) {
+        if (!byName.has(m.component)) byName.set(m.component, [])
+        byName.get(m.component)!.push(m)
+      }
     }
     return Array.from(byName.entries())
       .sort((a, b) => b[1].length - a[1].length)
       .map(([label, list]) => ({ label, count: list.length, signals: list }))
   }
   if (mode === 'commit' && kind === 'render') {
-    const byCommit = new Map<number, RenderSignal[]>()
-    for (const s of signals) {
-      if (s.kind !== 'render') continue
-      if (!byCommit.has(s.commitId)) byCommit.set(s.commitId, [])
-      byCommit.get(s.commitId)!.push(s)
-    }
-    return Array.from(byCommit.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([id, list]) => {
-        const root = cascadeRootOf(list)
-        return { label: root?.component ?? `commit ${id}`, count: list.length, signals: list }
+    // Each render signal already represents one commit.
+    return signals
+      .filter((s): s is RenderSignal => s.kind === 'render')
+      .sort((a, b) => a.commitId - b.commitId)
+      .map((s) => {
+        const list = s.members ?? [s]
+        return { label: s.component, count: list.length, signals: list }
       })
   }
   if (mode === 'source' && kind === 'forced-reflow') {
@@ -1007,7 +1013,9 @@ export function Panel(props: PanelProps) {
           )}
           {activeKind === 'render' && activeTab !== 'timeline' && (
             <RenderInsights
-              signals={grouped.render.filter((s): s is RenderSignal => s.kind === 'render')}
+              signals={grouped.render.flatMap((s) =>
+                s.kind === 'render' ? s.members ?? [s] : []
+              )}
               onSelect={() => {
                 setGroupMode({ ...groupMode, render: 'component' })
                 setExpandedKey(null)

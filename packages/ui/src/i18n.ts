@@ -47,6 +47,10 @@ export interface Strings {
   blocking: string
   sourceCount: (n: number) => string
   moreItems: (n: number) => string
+  /** Badge on a coalesced forced-reflow showing how many reads it merged. */
+  coalescedReads: (n: number) => string
+  /** Badge on a commit render showing how many components re-rendered. */
+  cascadeComponents: (n: number) => string
   // widget
   startRecording: string
   stopRecording: string
@@ -138,6 +142,8 @@ const en: Strings = {
   blocking: 'blocking',
   sourceCount: (n) => `${n} source(s)`,
   moreItems: (n) => `+ ${n} more`,
+  coalescedReads: (n) => `${n} reads`,
+  cascadeComponents: (n) => `${n} components`,
   startRecording: 'Start recording',
   stopRecording: 'Stop recording',
   rec: 'rec',
@@ -231,6 +237,8 @@ const ko: Strings = {
   blocking: '차단',
   sourceCount: (n) => `소스 ${n}개`,
   moreItems: (n) => `외 ${n}개 더`,
+  coalescedReads: (n) => `읽기 ${n}회`,
+  cascadeComponents: (n) => `컴포넌트 ${n}개`,
   startRecording: '녹화 시작',
   stopRecording: '녹화 종료',
   rec: '녹화',

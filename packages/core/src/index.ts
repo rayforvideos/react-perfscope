@@ -8,6 +8,9 @@ export { createRecorder } from './recorder'
 export { parseStack, resolveFrame, attachLazyStack, createSourceMapResolver } from './sourcemap'
 export type { FetchMap, SourceMapResolver, CreateSourceMapResolverOptions } from './sourcemap'
 
+// Self-request registry (excludes the tool's own traffic from network signals)
+export { markSelfRequest, isSelfRequest } from './self-requests'
+
 // Collectors
 export { createLongTasksCollector } from './collectors/long-tasks'
 export { createForcedReflowCollector } from './collectors/forced-reflow'

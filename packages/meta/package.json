@@ -1,6 +1,6 @@
 {
   "name": "react-perfscope",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Zero-config React performance profiler with an in-app panel.",
   "keywords": [
     "react",

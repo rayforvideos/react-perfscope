@@ -219,8 +219,12 @@ function renderBreakdown(members: Signal[]): { component: string; count: number 
   const counts = new Map<string, number>()
   for (const s of members) {
     if (s.kind !== 'render') continue
-    if (!counts.has(s.component)) order.push(s.component)
-    counts.set(s.component, (counts.get(s.component) ?? 0) + 1)
+    // Render signals are coalesced per commit; count each component that
+    // re-rendered inside them.
+    for (const m of s.members ?? [s]) {
+      if (!counts.has(m.component)) order.push(m.component)
+      counts.set(m.component, (counts.get(m.component) ?? 0) + 1)
+    }
   }
   return order.map((c) => ({ component: c, count: counts.get(c)! }))
 }
@@ -1165,7 +1169,7 @@ function TooltipContent({ s, startedAt }: { s: Signal; startedAt: number }) {
     case 'long-task':
       return <span><strong>long-task</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> {at}</span>
     case 'forced-reflow':
-      return <span><strong>forced-reflow</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span> {at}</span>
+      return <span><strong>forced-reflow</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span>{(s.count ?? 1) > 1 ? ` ×${s.count}` : ''} {at}</span>
     case 'layout-shift':
       return <span><strong>layout-shift</strong> <span style={{ color }}>{s.value.toFixed(3)}</span> {at}</span>
     case 'render':

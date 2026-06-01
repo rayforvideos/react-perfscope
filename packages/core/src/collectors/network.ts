@@ -1,4 +1,5 @@
 import type { Collector, Signal } from '../types'
+import { isSelfRequest } from '../self-requests'
 
 interface ResourceTimingLike extends PerformanceEntry {
   transferSize?: number
@@ -22,6 +23,8 @@ export function createNetworkCollector(): Collector {
           if (!active) return
           for (const raw of list.getEntries()) {
             const entry = raw as ResourceTimingLike
+            // Skip react-perfscope's own traffic (source-map fetches).
+            if (isSelfRequest(entry.name)) continue
             emit({
               kind: 'network',
               url: entry.name,

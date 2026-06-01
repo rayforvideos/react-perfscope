@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createNetworkCollector } from '../../src/collectors/network'
+import { markSelfRequest } from '../../src/self-requests'
 import type { NetworkSignal, Signal } from '../../src/types'
 
 type ObserverCb = (list: { getEntries: () => PerformanceEntry[] }) => void
@@ -82,6 +83,17 @@ describe('network collector', () => {
     collector.activate((s) => got.push(s))
     fireResource({ name: 'http://x/cached.js', transferSize: 0 } as Partial<PerformanceResourceTiming> & { name: string })
     expect((got[0] as NetworkSignal).size).toBe(0)
+  })
+
+  it('excludes react-perfscope own requests (source-map fetches)', () => {
+    const collector = createNetworkCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    markSelfRequest('http://x/app.js.map')
+    fireResource({ name: 'http://x/app.js.map' } as Partial<PerformanceResourceTiming> & { name: string })
+    fireResource({ name: 'http://x/real-app-request.json' } as Partial<PerformanceResourceTiming> & { name: string })
+    expect(got).toHaveLength(1)
+    expect((got[0] as NetworkSignal).url).toBe('http://x/real-app-request.json')
   })
 
   it('disconnects on deactivate without throwing', () => {

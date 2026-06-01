@@ -1,6 +1,6 @@
 # @react-perfscope/core
 
-Core recording engine for `react-perfscope`. Provides a `Recorder` and pluggable `Collector`s that emit normalized performance signals (forced-reflow, long-tasks, layout-shift, network, web-vitals, paint).
+Core recording engine for `react-perfscope`. Provides a `Recorder` and pluggable `Collector`s that emit normalized performance signals (forced-reflow, long-task, layout-shift, network, web-vital, interaction).
 
 ## Install
 
@@ -18,7 +18,6 @@ import {
   createLayoutShiftCollector,
   createNetworkCollector,
   createWebVitalsCollector,
-  createPaintCollector,
 } from '@react-perfscope/core'
 
 const recorder = createRecorder()
@@ -27,7 +26,6 @@ recorder.use(createLongTasksCollector())
 recorder.use(createLayoutShiftCollector())
 recorder.use(createNetworkCollector())
 recorder.use(createWebVitalsCollector())
-recorder.use(createPaintCollector())
 
 recorder.start()
 // ... user interaction ...
@@ -53,7 +51,7 @@ const original = await resolver.resolve(parsedFrame)
 
 # 한국어
 
-`react-perfscope`의 핵심 레코딩 엔진. `Recorder`와 플러그인 방식의 `Collector`를 제공해서 정규화된 성능 신호(forced-reflow, long-tasks, layout-shift, network, web-vitals, paint)를 내보낸다.
+`react-perfscope`의 핵심 레코딩 엔진. `Recorder`와 플러그인 방식의 `Collector`를 제공해서 정규화된 성능 신호(forced-reflow, long-task, layout-shift, network, web-vital, interaction)를 내보낸다.
 
 ## 설치
 
@@ -71,7 +69,6 @@ import {
   createLayoutShiftCollector,
   createNetworkCollector,
   createWebVitalsCollector,
-  createPaintCollector,
 } from '@react-perfscope/core'
 
 const recorder = createRecorder()
@@ -80,7 +77,6 @@ recorder.use(createLongTasksCollector())
 recorder.use(createLayoutShiftCollector())
 recorder.use(createNetworkCollector())
 recorder.use(createWebVitalsCollector())
-recorder.use(createPaintCollector())
 
 recorder.start()
 // ... 유저 인터랙션 ...

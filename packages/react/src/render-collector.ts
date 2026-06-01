@@ -1,8 +1,19 @@
-import type { Collector, Signal } from '@react-perfscope/core'
+import type { Collector, RenderSignal, Signal } from '@react-perfscope/core'
 import { installDevToolsHook } from './devtools-hook'
 import { fiberComponentName, walkChangedFibers } from './fiber-walker'
 import { classifyRenderReason, didPerformWork, subtreeMightHaveRendered } from './render-reason'
 import type { MinimalFiber } from './types'
+
+/** The cascade root of a commit: the component whose own state/mount started
+ * it. Falls back to the shallowest member. */
+function cascadeRoot(members: RenderSignal[]): RenderSignal {
+  let shallowest = members[0]!
+  for (const m of members) {
+    if (m.reason === 'state') return m
+    if (m.depth < shallowest.depth) shallowest = m
+  }
+  return members.find((m) => m.reason === 'mount') ?? shallowest
+}
 
 export function createRenderCollector(): Collector {
   let active = false
@@ -14,6 +25,7 @@ export function createRenderCollector(): Collector {
     if (!active) return
     const at = performance.now()
     const id = commitId++
+    const members: RenderSignal[] = []
     walkChangedFibers(
       root.current,
       (fiber, depth) => {
@@ -28,7 +40,7 @@ export function createRenderCollector(): Collector {
         if (!name) return
         const duration = typeof fiber.actualDuration === 'number' ? fiber.actualDuration : 0
         const { reason, changedProps } = classifyRenderReason(fiber)
-        emit({
+        members.push({
           kind: 'render',
           at,
           component: name,
@@ -44,6 +56,24 @@ export function createRenderCollector(): Collector {
       // as a phantom render on every unrelated commit.
       { descend: subtreeMightHaveRendered }
     )
+    if (members.length === 0) return
+    // One coalesced signal per commit. The root describes the cascade; the
+    // duration is the commit's total render time.
+    const root2 = cascadeRoot(members)
+    let total = 0
+    for (const m of members) total += m.duration
+    emit({
+      kind: 'render',
+      at,
+      component: root2.component,
+      reason: root2.reason,
+      duration: total,
+      commitId: id,
+      depth: root2.depth,
+      ...(root2.changedProps ? { changedProps: root2.changedProps } : {}),
+      members,
+      count: members.length,
+    })
   }
 
   return {

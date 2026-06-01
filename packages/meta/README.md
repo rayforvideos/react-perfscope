@@ -1,6 +1,6 @@
 # react-perfscope
 
-Performance debugging tool for React 18+ apps. Records forced reflows, layout shifts, long tasks, paint, web vitals, network, and React component renders during development.
+Performance debugging tool for React 18+ apps. Records forced reflows, layout shifts, long tasks, web vitals, network, interactions, and React component renders during development.
 
 This meta package re-exports everything from `@react-perfscope/core`, `@react-perfscope/react`, and `@react-perfscope/ui`, plus a side-effect `react-perfscope/auto` entry that bootstraps the full UI in one import.
 
@@ -44,7 +44,7 @@ const unmount = mount({ recorder, position: 'top-right' })
 
 # 한국어
 
-React 18+ 앱용 성능 디버깅 도구. 개발 중에 강제 리플로우, 레이아웃 시프트, 롱 태스크, 페인트, 웹 바이탈, 네트워크 요청, React 컴포넌트 렌더를 기록한다.
+React 18+ 앱용 성능 디버깅 도구. 개발 중에 강제 리플로우, 레이아웃 시프트, 롱 태스크, 웹 바이탈, 네트워크 요청, 인터랙션, React 컴포넌트 렌더를 기록한다.
 
 이 메타 패키지는 `@react-perfscope/core`, `@react-perfscope/react`, `@react-perfscope/ui`의 모든 것을 re-export하고, 임포트 한 줄로 전체 UI를 부트스트랩하는 `react-perfscope/auto` 사이드 이펙트 엔트리를 제공한다.
 

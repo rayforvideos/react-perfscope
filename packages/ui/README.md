@@ -27,13 +27,12 @@ const unmount = mount({ recorder })
 
 Click any row to expand its detail. Each signal kind shows different info:
 
-- **forced-reflow** — call stack showing where layout was forced
+- **forced-reflow** — call stack showing where layout was forced; reads in one turn are coalesced into a single entry carrying its read count
 - **layout-shift** — CLS value + each source rect
 - **long-task** — start/end/duration, plus call stack if captured
 - **network** — full URL, transfer size, render-blocking flag
-- **paint** — paint name (first-paint / first-contentful-paint)
 - **web-vital** — metric name, value, rating per [Google thresholds](https://web.dev/vitals/)
-- **render** — component, reason, duration, timestamp
+- **render** — one entry per commit, showing the cascade root and every component that re-rendered
 
 The header has a **Save** button that downloads the full recording as JSON. The `render` tab offers **Group by component** and the `forced-reflow` tab offers **Group by source**.
 
@@ -79,13 +78,12 @@ const unmount = mount({ recorder })
 
 신호 row를 클릭하면 디테일이 펼쳐진다. 종류별로 다른 정보를 보여준다:
 
-- **forced-reflow** — 레이아웃을 강제한 호출 스택
+- **forced-reflow** — 레이아웃을 강제한 호출 스택. 한 턴에 일어난 읽기는 읽기 횟수를 담은 한 항목으로 합쳐진다
 - **layout-shift** — CLS 값 + 각 source rect
 - **long-task** — 시작/끝/duration, 캡처된 스택이 있으면 같이 표시
 - **network** — 전체 URL, transfer size, render-blocking 여부
-- **paint** — paint 이름 (first-paint / first-contentful-paint)
 - **web-vital** — 메트릭 이름, 값, [Google 기준](https://web.dev/vitals/)에 따른 등급
-- **render** — 컴포넌트, reason, duration, 타임스탬프
+- **render** — 커밋당 한 항목. 캐스케이드 루트와 그 커밋에서 리렌더된 모든 컴포넌트를 보여준다
 
 헤더의 **Save** 버튼으로 전체 recording을 JSON으로 받을 수 있다. `render` 탭에는 **Group by component**, `forced-reflow` 탭에는 **Group by source** 옵션이 있다.
 

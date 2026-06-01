@@ -39,7 +39,7 @@ describe('render collector', () => {
     expect(collector.kind).toBe('render')
   })
 
-  it('emits RenderSignal for each named component on commit', () => {
+  it('emits one commit signal whose members cover each named component', () => {
     const collector = createRenderCollector()
     const got: Signal[] = []
     collector.activate((s) => got.push(s))
@@ -50,7 +50,11 @@ describe('render collector', () => {
       const barFiber = makeFiber(Bar, { return: fooFiber })
       fooFiber.child = barFiber
       fireCommit(fooFiber)
-      const names = (got as RenderSignal[]).map((s) => s.component)
+      // One coalesced signal per commit.
+      expect(got).toHaveLength(1)
+      const commit = got[0] as RenderSignal
+      expect(commit.count).toBe(2)
+      const names = (commit.members ?? []).map((m) => m.component)
       expect(names).toContain('Foo')
       expect(names).toContain('Bar')
     } finally {
@@ -207,14 +211,18 @@ describe('render collector', () => {
       })
       rootFiber.child = victimFiber
       fireCommit(rootFiber)
-      const renders = got as RenderSignal[]
-      const root = renders.find((s) => s.component === 'Root')!
-      const victim = renders.find((s) => s.component === 'Victim')!
+      const commit = got[0] as RenderSignal
+      const members = commit.members ?? []
+      const root = members.find((s) => s.component === 'Root')!
+      const victim = members.find((s) => s.component === 'Victim')!
       expect(root.reason).toBe('state')
       expect(victim.reason).toBe('parent')
       expect(root.commitId).toBe(victim.commitId)
       expect(root.depth).toBe(0)
       expect(victim.depth).toBe(1)
+      // The commit signal adopts the state root as its representative.
+      expect(commit.component).toBe('Root')
+      expect(commit.reason).toBe('state')
     } finally {
       collector.deactivate()
     }
@@ -231,11 +239,14 @@ describe('render collector', () => {
       const barFiber = makeFiber(Bar, { return: fooFiber } as Partial<MinimalFiber>)
       fooFiber.child = barFiber
       fireCommit(fooFiber)
-      const renders = got as RenderSignal[]
-      const foo = renders.find((s) => s.component === 'Foo')
-      const bar = renders.find((s) => s.component === 'Bar')
+      const commit = got[0] as RenderSignal
+      const members = commit.members ?? []
+      const foo = members.find((s) => s.component === 'Foo')
+      const bar = members.find((s) => s.component === 'Bar')
       expect(foo?.duration).toBe(7.5)
       expect(bar?.duration).toBe(0)
+      // Commit duration is the total across members.
+      expect(commit.duration).toBe(7.5)
     } finally {
       collector.deactivate()
     }

@@ -7,9 +7,16 @@ export type StackFrame = {
 
 export type ForcedReflowSignal = {
   kind: 'forced-reflow'
+  /** Time of the first layout read in the coalesced group. */
   at: number
+  /** Sum of the measured layout-flush durations across the group, in ms. */
   duration: number
+  /** Stack captured once, at the first read that opened the group. */
   stack: StackFrame[]
+  /** How many layout reads were coalesced into this group. Absent means 1.
+   * Reads in the same synchronous turn are merged so a layout-thrash loop
+   * surfaces as one signal carrying a count rather than thousands. */
+  count?: number
 }
 
 export type LayoutShiftSignal = {
@@ -120,11 +127,21 @@ export type RenderSignal = {
   duration: number
   /** Prop keys that changed since the previous render (reason === 'props'). */
   changedProps?: string[]
-  /** Groups every render emitted from the same commit so the UI can show
-   * one cascade (root + the components it re-rendered) as a unit. */
+  /** Groups every render from the same commit. Shared by a commit signal and
+   * all of its members. */
   commitId: number
   /** Fiber depth from the committed root — used to indent the cascade. */
   depth: number
+  /** Present only on the per-commit cascade signal: every component that
+   * re-rendered in this commit, in walk order. Each member is itself a
+   * RenderSignal (without its own `members`). On the commit signal,
+   * `component`/`reason`/`depth`/`changedProps` describe the cascade root and
+   * `duration` is the commit's total render time (sum of member durations).
+   * Coalescing one signal per commit (instead of one per fiber) keeps a
+   * layout-thrash-scale re-render from flooding the buffer and the UI. */
+  members?: RenderSignal[]
+  /** members.length, on the commit signal. */
+  count?: number
 }
 
 export type Signal =

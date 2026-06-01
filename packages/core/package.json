@@ -1,6 +1,6 @@
 {
   "name": "@react-perfscope/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Recorder and signal collectors for react-perfscope.",
   "keywords": [
     "react",
