@@ -488,6 +488,12 @@ function buildFpsPaths(
     const y = HEAP_VB_H - (Math.min(s.fps, max) / max) * HEAP_VB_H
     return { x, y }
   })
+  // Points sit at bucket midpoints, so the series stops short of both edges.
+  // Pin the ends to the track edges (flat-extending the first/last reading) so
+  // the chart fills the full width like the heap strip.
+  if (pts.length === 1) pts.push({ x: HEAP_VB_W, y: pts[0]!.y })
+  pts[0]!.x = 0
+  pts[pts.length - 1]!.x = HEAP_VB_W
   const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ')
   const last = pts[pts.length - 1]!
   const first = pts[0]!
