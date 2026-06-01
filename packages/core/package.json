@@ -1,7 +1,7 @@
 {
   "name": "@react-perfscope/core",
-  "version": "0.1.0",
-  "description": "Signal collectors and recorder powering react-perfscope — a zero-config React runtime performance profiler.",
+  "version": "0.1.1",
+  "description": "Recorder and signal collectors for react-perfscope.",
   "keywords": [
     "react",
     "performance",

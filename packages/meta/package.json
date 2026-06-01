@@ -1,7 +1,7 @@
 {
   "name": "react-perfscope",
-  "version": "0.1.0",
-  "description": "Zero-config React runtime performance profiler — renders, long tasks, layout shifts, web vitals, INP breakdown, heap & FPS — in an in-app panel.",
+  "version": "0.1.1",
+  "description": "Zero-config React performance profiler with an in-app panel.",
   "keywords": [
     "react",
     "performance",

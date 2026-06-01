@@ -1,7 +1,7 @@
 {
   "name": "@react-perfscope/react",
-  "version": "0.1.0",
-  "description": "React render-cascade collector for react-perfscope: per-commit render reasons with source attribution.",
+  "version": "0.1.1",
+  "description": "React render collector for react-perfscope.",
   "keywords": [
     "react",
     "performance",

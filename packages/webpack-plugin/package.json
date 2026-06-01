@@ -1,7 +1,7 @@
 {
   "name": "@react-perfscope/webpack",
-  "version": "0.1.0",
-  "description": "webpack plugin for react-perfscope — auto-mounts the profiler in dev and injects the js-profiling Document-Policy header.",
+  "version": "0.1.1",
+  "description": "webpack plugin that auto-mounts react-perfscope in dev.",
   "keywords": [
     "webpack",
     "webpack-plugin",
