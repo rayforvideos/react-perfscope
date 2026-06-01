@@ -74,6 +74,11 @@ export function severityForSignal(s: Signal): Severity {
       const rating = webVitalRating(s.name, s.value)
       return rating === 'poor' ? 'high' : rating === 'needs' ? 'medium' : 'low'
     }
+    case 'interaction':
+      // Official INP thresholds: good < 200ms, needs-improvement < 500ms.
+      if (s.duration >= 500) return 'high'
+      if (s.duration >= 200) return 'medium'
+      return 'low'
   }
 }
 
@@ -98,6 +103,7 @@ export const KIND_LABEL: Record<SignalKind, string> = {
   'forced-reflow': 'forced-reflow',
   'layout-shift': 'layout-shift',
   'long-task': 'long-task',
+  'interaction': 'interaction',
   'network': 'network',
   'web-vital': 'web-vital',
   'render': 'render',

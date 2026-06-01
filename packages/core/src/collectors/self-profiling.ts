@@ -134,6 +134,23 @@ export function attributeLongTaskSignals(trace: ProfilerTrace, signals: Signal[]
   })
 }
 
+/**
+ * Like {@link attributeLongTaskSignals} but for interactions: attributes the
+ * *processing* window (handlers running, `[at+inputDelay, +processing]`) to the
+ * developer's hot functions — answering "which of my code made this click
+ * slow". Input delay and presentation aren't JS-on-the-stack, so they're
+ * excluded from the window.
+ */
+export function attributeInteractionSignals(trace: ProfilerTrace, signals: Signal[]): Signal[] {
+  return signals.map((signal) => {
+    if (signal.kind !== 'interaction') return signal
+    const start = signal.at + signal.inputDelay
+    const attribution = attributeWindow(trace, start, start + signal.processing)
+    if (attribution.length === 0) return signal
+    return { ...signal, attribution }
+  })
+}
+
 interface SelfProfilingCollector extends Collector {
   /** Stop the profiler (if running), await its trace, and return a result
    * with long-task signals enriched. Falls back to the input on any failure
@@ -186,7 +203,8 @@ export function createSelfProfilingCollector(): SelfProfilingCollector {
       if (!tracePromise) return result
       try {
         const trace = await tracePromise
-        return { ...result, signals: attributeLongTaskSignals(trace, result.signals) }
+        const signals = attributeInteractionSignals(trace, attributeLongTaskSignals(trace, result.signals))
+        return { ...result, signals }
       } catch (err) {
         console.warn('[react-perfscope] self-profiling finalize failed:', err)
         return result

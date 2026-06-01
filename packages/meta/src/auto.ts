@@ -7,6 +7,8 @@ import {
   createWebVitalsCollector,
   createSelfProfilingCollector,
   createHeapCollector,
+  createInteractionCollector,
+  createFrameCollector,
   createSourceMapResolver,
 } from '@react-perfscope/core'
 import { createRenderCollector, installDevToolsHook } from '@react-perfscope/react'
@@ -50,11 +52,21 @@ function bootstrap(): void {
     recorder.use(selfProfiler)
     const heap = createHeapCollector()
     recorder.use(heap)
+    const interaction = createInteractionCollector()
+    recorder.use(interaction)
+    const frame = createFrameCollector()
+    recorder.use(frame)
     const resolver = createSourceMapResolver()
     mount({
       recorder,
       resolveFrame: (f) => resolver.resolve(f),
-      finalize: (result) => selfProfiler.finalize(result).then((r) => heap.finalize(r)),
+      // Assemble interactions first so self-profiling can attribute their
+      // processing windows, then attach the heap series and frame timestamps.
+      finalize: (result) =>
+        Promise.resolve(interaction.finalize(result))
+          .then((r) => selfProfiler.finalize(r))
+          .then((r) => heap.finalize(r))
+          .then((r) => frame.finalize(r)),
     })
     g.__REACT_PERFSCOPE_AUTO_MOUNTED__ = true
   } catch (err) {

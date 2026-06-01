@@ -61,6 +61,11 @@ export interface Strings {
   heapUnsupported: string
   heapExtensionHint: string
   heapTrendLabel: (cls: HeapTrendClass) => string
+  // frame rate
+  fpsLabel: string
+  fpsUnsupported: string
+  fpsBadge: (minFps: number, dropped: number) => string
+  fpsWorst: (ms: number) => string
   // render insights
   topRenderers: string
   moreComponents: (n: number) => string
@@ -89,6 +94,11 @@ export interface Strings {
   noScripts: string
   hotFunctions: string
   hotFunctionsHint: string
+  // interaction (INP)
+  interactionEvent: string
+  inputDelay: string
+  processingTime: string
+  presentation: string
 }
 
 const en: Strings = {
@@ -139,6 +149,10 @@ const en: Strings = {
     'Heap size includes browser extensions injected into the page (e.g. React DevTools), so it can rise even while your app is idle. For app-only measurement, record in an incognito window or a profile with extensions disabled.',
   heapTrendLabel: (cls) =>
     cls === 'leak-suspected' ? 'leak suspected' : cls === 'growing' ? 'growing' : 'stable',
+  fpsLabel: 'fps',
+  fpsUnsupported: 'frame timing unavailable',
+  fpsBadge: (minFps, dropped) => `min ${minFps}fps · ${dropped} dropped`,
+  fpsWorst: (ms) => `worst ${ms}ms`,
   topRenderers: 'Top renderers · by total time',
   moreComponents: (n) => `+ ${n} more component${n === 1 ? '' : 's'}`,
   rendererDetail: (c, n, total, max) =>
@@ -163,6 +177,10 @@ const en: Strings = {
   noScripts: 'No script attribution (LoAF unsupported).',
   hotFunctions: 'your hot functions',
   hotFunctionsHint: 'sampled time spent in your own source',
+  interactionEvent: 'event',
+  inputDelay: 'input delay',
+  processingTime: 'processing',
+  presentation: 'presentation',
 }
 
 const KIND_LABELS_KO: Record<SignalKind, string> = {
@@ -171,6 +189,7 @@ const KIND_LABELS_KO: Record<SignalKind, string> = {
   'long-task': '긴 작업',
   'forced-reflow': '강제 리플로우',
   network: '네트워크',
+  interaction: '상호작용',
   'web-vital': '웹 바이탈',
 }
 
@@ -222,6 +241,10 @@ const ko: Strings = {
     '힙 크기엔 페이지에 주입된 브라우저 확장(예: React DevTools) 메모리도 포함돼요. 그래서 앱이 idle이어도 올라갈 수 있어요. 앱만 정확히 재려면 시크릿 창이나 확장이 꺼진 프로필에서 녹화하세요.',
   heapTrendLabel: (cls) =>
     cls === 'leak-suspected' ? '누수 의심' : cls === 'growing' ? '증가 중' : '안정',
+  fpsLabel: 'fps',
+  fpsUnsupported: '프레임 측정 미지원',
+  fpsBadge: (minFps, dropped) => `최저 ${minFps}fps · 드랍 ${dropped}`,
+  fpsWorst: (ms) => `최악 ${ms}ms`,
   topRenderers: '상위 렌더러 · 총 시간순',
   moreComponents: (n) => `외 컴포넌트 ${n}개 더`,
   rendererDetail: (c, n, total, max) =>
@@ -246,6 +269,10 @@ const ko: Strings = {
   noScripts: '스크립트 출처 없음 (LoAF 미지원).',
   hotFunctions: '내 코드 핫스팟',
   hotFunctionsHint: '내 소스에서 샘플링된 점유 시간',
+  interactionEvent: '이벤트',
+  inputDelay: '입력 지연',
+  processingTime: '처리',
+  presentation: '화면 반영',
 }
 
 export const STRINGS: Record<Lang, Strings> = { en, ko }

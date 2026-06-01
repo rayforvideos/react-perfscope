@@ -16,6 +16,10 @@ export { createNetworkCollector } from './collectors/network'
 export { createWebVitalsCollector } from './collectors/web-vitals'
 export { createHeapCollector, analyzeHeapTrend } from './collectors/heap'
 export type { HeapCollector } from './collectors/heap'
+export { createInteractionCollector } from './collectors/interaction'
+export type { InteractionCollector } from './collectors/interaction'
+export { createFrameCollector, analyzeFrames } from './collectors/frames'
+export type { FrameCollector } from './collectors/frames'
 export {
   createSelfProfilingCollector,
   attributeWindow,

@@ -1,7 +1,7 @@
 import { h, Fragment } from 'preact'
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { Signal, SignalKind, HeapSample, HeapTrendClass } from '@react-perfscope/core'
-import { analyzeHeapTrend } from '@react-perfscope/core'
+import { analyzeHeapTrend, analyzeFrames } from '@react-perfscope/core'
 import { severityForSignal, SEVERITY_OVERLAY_COLOR } from './severity'
 import { useI18n } from './i18n'
 
@@ -14,11 +14,14 @@ interface TimelineProps {
   startedAt: number
   /** Heap-usage series, when performance.memory was available. */
   heapSamples?: HeapSample[]
+  /** requestAnimationFrame timestamps for the frame-rate strip. */
+  frames?: number[]
   onJump?: (signal: Signal) => void
 }
 
 const LANE_ORDER: SignalKind[] = [
   'long-task',
+  'interaction',
   'forced-reflow',
   'layout-shift',
   'render',
@@ -32,7 +35,13 @@ function signalAbsoluteTime(s: Signal): number | null {
 }
 
 function signalDuration(s: Signal): number {
-  if (s.kind === 'long-task' || s.kind === 'forced-reflow' || s.kind === 'render' || s.kind === 'network') {
+  if (
+    s.kind === 'long-task' ||
+    s.kind === 'forced-reflow' ||
+    s.kind === 'render' ||
+    s.kind === 'network' ||
+    s.kind === 'interaction'
+  ) {
     return s.duration
   }
   return 0
@@ -456,7 +465,133 @@ function HeapStrip({
   )
 }
 
-export function Timeline({ signals, duration, startedAt, heapSamples, onJump }: TimelineProps) {
+const FPS_GOOD = '#34c759'
+const FPS_OK = '#f59e0b'
+const FPS_BAD = '#ef4444'
+
+function fpsColor(minFps: number): string {
+  if (minFps >= 50) return FPS_GOOD
+  if (minFps >= 30) return FPS_OK
+  return FPS_BAD
+}
+
+function buildFpsPaths(
+  series: { at: number; fps: number }[],
+  startedAt: number,
+  safeDur: number,
+): { area: string; line: string; max: number } | null {
+  if (series.length === 0) return null
+  let max = 60
+  for (const s of series) if (s.fps > max) max = s.fps
+  const pts = series.map((s) => {
+    const x = Math.max(0, Math.min(HEAP_VB_W, ((s.at - startedAt) / safeDur) * HEAP_VB_W))
+    const y = HEAP_VB_H - (Math.min(s.fps, max) / max) * HEAP_VB_H
+    return { x, y }
+  })
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ')
+  const last = pts[pts.length - 1]!
+  const first = pts[0]!
+  const area = `${line} L${last.x.toFixed(2)} ${HEAP_VB_H} L${first.x.toFixed(2)} ${HEAP_VB_H} Z`
+  return { area, line, max }
+}
+
+function FpsStrip({
+  frames,
+  startedAt,
+  safeDur,
+  trackWidth,
+  scrolls,
+}: {
+  frames: number[] | undefined
+  startedAt: number
+  safeDur: number
+  trackWidth: number
+  scrolls: boolean
+}) {
+  const { t } = useI18n()
+  const has = !!frames && frames.length > 0
+  const stats = useMemo(() => (has ? analyzeFrames(frames!) : null), [frames, has])
+  const paths = useMemo(
+    () => (stats ? buildFpsPaths(stats.series, startedAt, safeDur) : null),
+    [stats, startedAt, safeDur],
+  )
+  const color = stats ? fpsColor(stats.minFps) : FPS_GOOD
+
+  return (
+    <div
+      data-fps-strip=""
+      style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        height: `${HEAP_STRIP_H}px`,
+        background: '#111',
+        borderBottom: '1px solid #1c1c1c',
+      }}
+    >
+      <div
+        style={{
+          flex: `0 0 ${LABEL_COL_WIDTH}px`,
+          minWidth: 0,
+          boxSizing: 'border-box',
+          position: 'sticky',
+          left: 0,
+          zIndex: 5,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: '2px',
+          padding: '0 8px',
+          borderRight: '1px solid #1c1c1c',
+          background: '#0f0f0f',
+        }}
+      >
+        <span style={{ color: '#9a9a9a' }}>{t.fpsLabel}</span>
+        {stats && (
+          <span data-fps-min={Math.round(stats.minFps)} style={{ color, fontSize: '10px' }}>
+            {t.fpsBadge(Math.round(stats.minFps), stats.droppedFrames)}
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          flex: scrolls ? '0 0 auto' : 1,
+          width: scrolls ? `${trackWidth}px` : undefined,
+          position: 'relative',
+          padding: `0 ${TRACK_PAD_X}px`,
+        }}
+      >
+        {stats && paths ? (
+          <Fragment>
+            <svg
+              width="100%"
+              height={HEAP_STRIP_H}
+              viewBox={`0 0 ${HEAP_VB_W} ${HEAP_VB_H}`}
+              preserveAspectRatio="none"
+              style={{ display: 'block' }}
+              aria-hidden="true"
+            >
+              <path d={paths.area} fill={color} fillOpacity={0.16} />
+              <path d={paths.line} fill="none" stroke={color} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+            </svg>
+            <span
+              style={{ position: 'absolute', top: '2px', right: '6px', color: '#666', fontSize: '10px', pointerEvents: 'none' }}
+            >
+              {t.fpsWorst(Math.round(stats.longestFrameMs))}
+            </span>
+          </Fragment>
+        ) : (
+          <span
+            style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', color: '#666', fontSize: '10px' }}
+          >
+            {t.fpsUnsupported}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function Timeline({ signals, duration, startedAt, heapSamples, frames, onJump }: TimelineProps) {
   const { t } = useI18n()
   const trackRef = useRef<HTMLDivElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -531,7 +666,8 @@ export function Timeline({ signals, duration, startedAt, heapSamples, onJump }: 
   const scrolls = viewportTrackWidth > 0 && trackWidth > viewportTrackWidth + 0.5
 
   const hasHeap = !!heapSamples && heapSamples.length > 0
-  if (presentLanes.length === 0 && !hasHeap) {
+  const hasFrames = !!frames && frames.length > 0
+  if (presentLanes.length === 0 && !hasHeap && !hasFrames) {
     return (
       <div style={{ color: '#888', padding: '20px', textAlign: 'center', fontSize: '11px' }}>
         {t.noTimeBound}
@@ -633,6 +769,13 @@ export function Timeline({ signals, duration, startedAt, heapSamples, onJump }: 
         )}
         <HeapStrip
           samples={heapSamples}
+          startedAt={startedAt}
+          safeDur={safeDur}
+          trackWidth={trackWidth}
+          scrolls={scrolls}
+        />
+        <FpsStrip
+          frames={frames}
           startedAt={startedAt}
           safeDur={safeDur}
           trackWidth={trackWidth}
@@ -1023,6 +1166,8 @@ function TooltipContent({ s, startedAt }: { s: Signal; startedAt: number }) {
       return <span><strong>{s.component}</strong> <span style={{ color }}>{s.duration.toFixed(2)}ms</span> {at}</span>
     case 'network':
       return <span><strong>{s.url.slice(0, 40)}</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> {at}</span>
+    case 'interaction':
+      return <span><strong>{s.eventType}</strong> <span style={{ color }}>{s.duration.toFixed(0)}ms</span> {at}</span>
     case 'web-vital':
       return null
   }

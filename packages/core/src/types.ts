@@ -89,6 +89,27 @@ export type NetworkSignal = {
   blocking: boolean
 }
 
+export type InteractionSignal = {
+  kind: 'interaction'
+  /** Event startTime — when the user input arrived. */
+  at: number
+  /** Event type that defined the interaction latency (click, pointerup, keydown…). */
+  eventType: string
+  /** Best-effort CSS-ish selector of the event target. */
+  target?: string
+  /** Total interaction latency: input → handlers → next paint (ms). */
+  duration: number
+  /** startTime → processingStart: main thread was busy before handlers ran. */
+  inputDelay: number
+  /** processingStart → processingEnd: the event handlers themselves. */
+  processing: number
+  /** processingEnd → next paint: re-render + paint after handlers. */
+  presentation: number
+  /** Hottest user-source frames during the processing window, from JS
+   * Self-Profiling. Absent when self-profiling is unavailable or found none. */
+  attribution?: LongTaskAttribution[]
+}
+
 export type RenderReason = 'mount' | 'state' | 'props' | 'parent'
 
 export type RenderSignal = {
@@ -113,6 +134,7 @@ export type Signal =
   | WebVitalSignal
   | NetworkSignal
   | RenderSignal
+  | InteractionSignal
 
 export type SignalKind = Signal['kind']
 
@@ -135,6 +157,23 @@ export type HeapTrend = {
   slopeBytesPerMin: number
 }
 
+/** One windowed frame-rate reading. */
+export type FpsSample = {
+  at: number
+  fps: number
+}
+
+export type FrameStats = {
+  /** Windowed FPS series across the recording. */
+  series: FpsSample[]
+  /** Lowest windowed FPS — the worst sustained dip. */
+  minFps: number
+  /** Longest single inter-frame gap (worst hitch), in ms. */
+  longestFrameMs: number
+  /** Approximate frames dropped across the recording (vs a 60fps budget). */
+  droppedFrames: number
+}
+
 export interface RecordingResult {
   signals: Signal[]
   startedAt: number
@@ -142,13 +181,16 @@ export interface RecordingResult {
   /** Heap-usage time series, present only when performance.memory is
    * available (Chromium). Attached at finalize, not part of the signal buffer. */
   heapSamples?: HeapSample[]
+  /** requestAnimationFrame timestamps captured during the recording, for
+   * frame-rate / jank analysis. Attached at finalize. */
+  frames?: number[]
 }
 
 /** Collectors are usually keyed by the SignalKind they emit. A few (heap,
  * self-profiling) drive a side-channel instead of emitting signals; `'heap'`
  * widens the kind for the heap sampler, which attaches a time series via
  * finalize rather than pushing signals. */
-export type CollectorKind = SignalKind | 'heap'
+export type CollectorKind = SignalKind | 'heap' | 'frame'
 
 export interface Collector {
   readonly kind: CollectorKind

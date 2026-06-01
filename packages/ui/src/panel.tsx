@@ -10,6 +10,7 @@ import type {
   LongTaskAttribution,
   NetworkSignal,
   RenderSignal,
+  InteractionSignal,
   RenderReason,
   WebVitalSignal,
   StackFrame,
@@ -85,6 +86,7 @@ const KIND_ORDER: SignalKind[] = [
   'forced-reflow',
   'layout-shift',
   'long-task',
+  'interaction',
   'network',
   'web-vital',
   'render',
@@ -102,6 +104,7 @@ function groupByKind(signals: Signal[]): Record<SignalKind, Signal[]> {
     'forced-reflow': [] as Signal[],
     'layout-shift': [] as Signal[],
     'long-task': [] as Signal[],
+    'interaction': [] as Signal[],
     'network': [] as Signal[],
     'web-vital': [] as Signal[],
     'render': [] as Signal[],
@@ -163,6 +166,8 @@ function summary(s: Signal): string {
       return `@ ${s.at.toFixed(1)}ms • value ${formatCls(s.value)} • ${s.sources.length} source(s)`
     case 'long-task':
       return `@ ${s.at.toFixed(1)}ms • duration ${s.duration.toFixed(1)}ms`
+    case 'interaction':
+      return `${s.eventType}${s.target ? ` ${s.target}` : ''} • ${s.duration.toFixed(0)}ms`
     case 'network':
       return `${s.url.length > 60 ? s.url.slice(0, 57) + '...' : s.url} • ${s.duration.toFixed(0)}ms${s.blocking ? ' • blocking' : ''}`
     case 'web-vital':
@@ -402,6 +407,47 @@ function LongTaskDetail({
   )
 }
 
+const INTERACTION_PHASE_COLOR = { input: '#8e8e93', processing: '#5ac8fa', presentation: '#34c759' }
+
+function InteractionDetail({
+  s,
+  resolveFrame,
+}: {
+  s: InteractionSignal
+  resolveFrame?: (frame: StackFrame) => Promise<StackFrame>
+}) {
+  const { t } = useI18n()
+  const total = Math.max(s.duration, 1)
+  const phases: { label: string; ms: number; color: string }[] = [
+    { label: t.inputDelay, ms: s.inputDelay, color: INTERACTION_PHASE_COLOR.input },
+    { label: t.processingTime, ms: s.processing, color: INTERACTION_PHASE_COLOR.processing },
+    { label: t.presentation, ms: s.presentation, color: INTERACTION_PHASE_COLOR.presentation },
+  ]
+  return (
+    <div style={{ paddingLeft: '12px' }}>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.interactionEvent}</span><span>{s.eventType}{s.target ? ` · ${s.target}` : ''}</span></div>
+      <div style={detailRowStyle}><span style={detailLabelStyle}>{t.duration}</span><span>{s.duration.toFixed(0)}ms</span></div>
+      <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', margin: '5px 0 7px', background: '#1a1a1a' }}>
+        {phases.map((p, i) => (
+          <div key={i} style={{ width: `${(p.ms / total) * 100}%`, background: p.color }} />
+        ))}
+      </div>
+      {phases.map((p, i) => (
+        <div key={i} style={detailRowStyle}>
+          <span style={{ ...detailLabelStyle, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '2px', background: p.color, flex: '0 0 7px' }} />
+            {p.label}
+          </span>
+          <span>{p.ms.toFixed(0)}ms</span>
+        </div>
+      ))}
+      {s.attribution !== undefined && s.attribution.length > 0 && (
+        <HotFunctions attribution={s.attribution} resolveFrame={resolveFrame} />
+      )}
+    </div>
+  )
+}
+
 function SignalDetail({
   s,
   resolveFrame,
@@ -413,6 +459,7 @@ function SignalDetail({
     case 'forced-reflow': return <ForcedReflowDetail s={s} resolveFrame={resolveFrame} />
     case 'layout-shift': return <LayoutShiftDetail s={s} />
     case 'long-task': return <LongTaskDetail s={s} resolveFrame={resolveFrame} />
+    case 'interaction': return <InteractionDetail s={s} resolveFrame={resolveFrame} />
     case 'network': return <NetworkDetail s={s} />
     case 'web-vital': return <WebVitalDetail s={s} />
     case 'render': return <RenderDetail s={s} />
@@ -732,7 +779,8 @@ export function Panel(props: PanelProps) {
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
   const hasTimelineSignals =
     result.signals.some((s) => s.kind !== 'web-vital') ||
-    (result.heapSamples?.length ?? 0) > 0
+    (result.heapSamples?.length ?? 0) > 0 ||
+    (result.frames?.length ?? 0) > 0
   const [activeTab, setActiveTab] = useState<ActiveTab>(
     kindsPresent[0] ?? 'forced-reflow',
   )
@@ -947,6 +995,7 @@ export function Panel(props: PanelProps) {
                 duration={result.duration}
                 startedAt={result.startedAt}
                 heapSamples={result.heapSamples}
+                frames={result.frames}
                 onJump={(s) => {
                   setActiveTab(s.kind)
                   const inOrder = grouped[s.kind]

@@ -3,6 +3,7 @@ import {
   isUserResource,
   attributeWindow,
   attributeLongTaskSignals,
+  attributeInteractionSignals,
   type ProfilerTrace,
 } from '../src/collectors/self-profiling'
 import type { Signal } from '../src/types'
@@ -140,5 +141,32 @@ describe('attributeLongTaskSignals', () => {
     const out = attributeLongTaskSignals(trace, signals)
     const lt = out[0] as Extract<Signal, { kind: 'long-task' }>
     expect(lt.attribution).toBeUndefined()
+  })
+})
+
+describe('attributeInteractionSignals', () => {
+  it('attributes only the processing window (excludes input delay and presentation)', () => {
+    // Samples at 1000 and 1050. Interaction: at=900, inputDelay=100 → processing
+    // starts at 1000; processing=120 → window [1000, 1120] catches both. A sample
+    // during input delay (before 1000) must NOT count.
+    const trace = makeTrace([
+      { timestamp: 950, stackId: 2 }, // input-delay phase → excluded
+      { timestamp: 1000, stackId: 2 },
+      { timestamp: 1050, stackId: 2 },
+    ])
+    const signals: Signal[] = [
+      { kind: 'interaction', at: 900, eventType: 'click', duration: 300, inputDelay: 100, processing: 120, presentation: 80 },
+    ]
+    const out = attributeInteractionSignals(trace, signals)
+    const it = out[0] as Extract<Signal, { kind: 'interaction' }>
+    expect(it.attribution?.[0]?.frame.fnName).toBe('trigger')
+    expect(it.attribution?.[0]?.sampleCount).toBe(2) // 1000 and 1050, not 950
+  })
+
+  it('leaves non-interaction signals untouched', () => {
+    const trace = makeTrace([{ timestamp: 1000, stackId: 2 }])
+    const signals: Signal[] = [{ kind: 'long-task', at: 1000, duration: 100, stack: [] }]
+    const out = attributeInteractionSignals(trace, signals)
+    expect(out[0]).toBe(signals[0])
   })
 })
