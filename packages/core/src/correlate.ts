@@ -1,4 +1,16 @@
-import type { InteractionSignal, LongTaskSignal, Signal, StackFrame } from './types'
+import type {
+  ForcedReflowSignal,
+  InteractionSignal,
+  LongTaskSignal,
+  RenderSignal,
+  Signal,
+  StackFrame,
+} from './types'
+
+/** One frame at 60fps. A commit's `at` is sampled when it completes (after its
+ * layout effects), so a reflow forced during that commit finishes up to ~a
+ * frame before the commit is timestamped. */
+const FRAME_MS = 16
 
 export type AnchorSignal = InteractionSignal | LongTaskSignal
 
@@ -17,10 +29,19 @@ export type InpPhase = 'input-delay' | 'processing' | 'presentation'
  * (web-vital has no `at`; network uses `startedAt`). */
 type MemberSignal = Exclude<Extract<Signal, { at: number }>, AnchorSignal>
 
+/** The render commit a forced reflow happened inside — the component whose
+ * commit forced the synchronous layout. Set when the reflow's timestamp falls
+ * within a render commit's window. */
+export type CommitCause = {
+  commitId: number
+  component: string
+}
+
 export type EpisodeMember = {
   signal: MemberSignal
   confidence: LinkConfidence
   phase?: InpPhase
+  causedBy?: CommitCause
 }
 
 export type Episode = {
@@ -51,6 +72,17 @@ function linkConfidence(signal: MemberSignal, hotLocations: Set<string>): LinkCo
   return 'co-occurred'
 }
 
+/** Finds the render commit that forced a reflow. A render signal's `at` is
+ * sampled when the commit completes — *after* its layout effects, where forced
+ * reflows happen — and its `duration` covers only the render phase, not the
+ * layout work. So the triggering commit is the one that completes at or just
+ * after the reflow (within a frame of the reflow finishing), not one whose
+ * narrow render-phase window contains it. */
+function commitForReflow(reflow: ForcedReflowSignal, renders: RenderSignal[]): RenderSignal | undefined {
+  const reflowEnd = reflow.at + reflow.duration
+  return renders.find((r) => r.at >= reflow.at && r.at <= reflowEnd + FRAME_MS)
+}
+
 function inpPhaseAt(anchor: AnchorSignal, at: number): InpPhase | undefined {
   if (anchor.kind !== 'interaction') return undefined
   const processingStart = anchor.at + anchor.inputDelay
@@ -67,13 +99,26 @@ export function correlate(signals: Signal[]): Episode[] {
     const start = anchor.at
     const end = anchor.at + anchor.duration
     const hotLocations = anchorHotLocations(anchor)
-    const members = signals
-      .filter((s): s is MemberSignal => isMember(s, anchor) && s.at >= start && s.at <= end)
-      .map((signal) => ({
+    const windowed = signals.filter(
+      (s): s is MemberSignal => isMember(s, anchor) && s.at >= start && s.at <= end,
+    )
+    const renders = windowed.filter((s): s is RenderSignal => s.kind === 'render')
+
+    const members = windowed.map((signal) => {
+      const member: EpisodeMember = {
         signal,
         confidence: linkConfidence(signal, hotLocations),
         phase: inpPhaseAt(anchor, signal.at),
-      }))
+      }
+      if (signal.kind === 'forced-reflow') {
+        const commit = commitForReflow(signal, renders)
+        if (commit) {
+          member.confidence = 'caused'
+          member.causedBy = { commitId: commit.commitId, component: commit.component }
+        }
+      }
+      return member
+    })
 
     return { anchor, members }
   })

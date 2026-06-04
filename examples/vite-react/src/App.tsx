@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useLayoutEffect, useRef, useState } from 'react'
 
 const containerStyle: React.CSSProperties = {
   fontFamily:
@@ -197,6 +197,38 @@ function CascadeDemo() {
   )
 }
 
+function RenderReflowDemo() {
+  const [n, setN] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  // The layout effect runs during this component's commit. It thrashes layout
+  // hard enough (~2000 forced reads) that the click crosses the 40ms INP
+  // threshold — so the INP episode should attribute the reflow to this commit.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    for (let i = 0; i < 2000; i++) {
+      el.style.width = `${100 + (i % 12)}px`
+      void el.offsetWidth
+    }
+  })
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ margin: '0 0 8px' }}>8. Render → forced reflow (causal chain)</h2>
+      <p>
+        Clicking re-renders this component; its layout effect thrashes layout during the commit.
+        In the interaction tab, the INP episode should show the forced reflow attributed to this commit.
+      </p>
+      <button type="button" style={buttonStyle} onClick={() => setN((v) => v + 1)}>
+        render + thrash: {n}
+      </button>
+      <div
+        ref={ref}
+        style={{ marginTop: '12px', width: '100px', height: '20px', background: '#fca5a5', borderRadius: '4px' }}
+      />
+    </div>
+  )
+}
+
 function WebVitalsNote() {
   return (
     <div style={cardStyle}>
@@ -224,6 +256,7 @@ export function App() {
       <LongTaskDemo />
       <NetworkDemo />
       <CascadeDemo />
+      <RenderReflowDemo />
       <WebVitalsNote />
     </div>
   )

@@ -13,7 +13,7 @@ export { markSelfRequest, isSelfRequest } from './self-requests'
 
 // Cross-signal correlation (groups signals into interaction/long-task episodes)
 export { correlate } from './correlate'
-export type { Episode, EpisodeMember, AnchorSignal, LinkConfidence, InpPhase } from './correlate'
+export type { Episode, EpisodeMember, AnchorSignal, LinkConfidence, InpPhase, CommitCause } from './correlate'
 
 // Collectors
 export { createLongTasksCollector } from './collectors/long-tasks'

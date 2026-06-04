@@ -130,4 +130,93 @@ describe('correlate', () => {
 
     expect(episode!.members[0]!.phase).toBeUndefined()
   })
+
+  it('attributes a reflow to the render commit whose window contains it', () => {
+    // render `at` is sampled post-commit, so the render phase occupies the
+    // `duration` ms before it: window [130, 150].
+    const interaction: Signal = {
+      kind: 'interaction',
+      at: 100,
+      eventType: 'click',
+      duration: 100,
+      inputDelay: 10,
+      processing: 80,
+      presentation: 10,
+    }
+    const render: Signal = {
+      kind: 'render',
+      at: 150,
+      component: 'Counter',
+      reason: 'state',
+      duration: 20,
+      commitId: 7,
+      depth: 0,
+    }
+    const reflow: Signal = { kind: 'forced-reflow', at: 140, duration: 3, stack: [] }
+
+    const [episode] = correlate([interaction, render, reflow])
+    const reflowMember = episode!.members.find((m) => m.signal.kind === 'forced-reflow')!
+
+    expect(reflowMember.confidence).toBe('caused')
+    expect(reflowMember.causedBy).toEqual({ commitId: 7, component: 'Counter' })
+  })
+
+  it('attributes a long reflow to the commit that completes just after it (post-commit `at`)', () => {
+    // Real recording shape: the reflow runs in a layout effect (~37ms) and the
+    // render `at` is sampled when the commit completes — after the reflow — with
+    // a `duration` covering only the tiny render phase, not the layout work.
+    const interaction: Signal = {
+      kind: 'interaction',
+      at: 0,
+      eventType: 'click',
+      duration: 56,
+      inputDelay: 0.4,
+      processing: 43.7,
+      presentation: 11.9,
+    }
+    const reflow: Signal = { kind: 'forced-reflow', at: 3.2, duration: 37.1, stack: [], count: 2000 }
+    const render: Signal = {
+      kind: 'render',
+      at: 43.9,
+      component: 'RenderReflowDemo',
+      reason: 'state',
+      duration: 0.9,
+      commitId: 0,
+      depth: 0,
+    }
+
+    const [episode] = correlate([interaction, reflow, render])
+    const reflowMember = episode!.members.find((m) => m.signal.kind === 'forced-reflow')!
+
+    expect(reflowMember.confidence).toBe('caused')
+    expect(reflowMember.causedBy).toEqual({ commitId: 0, component: 'RenderReflowDemo' })
+  })
+
+  it('does not attribute a reflow that falls outside any commit window', () => {
+    const interaction: Signal = {
+      kind: 'interaction',
+      at: 100,
+      eventType: 'click',
+      duration: 100,
+      inputDelay: 10,
+      processing: 80,
+      presentation: 10,
+    }
+    const render: Signal = {
+      kind: 'render',
+      at: 150,
+      component: 'Counter',
+      reason: 'state',
+      duration: 20,
+      commitId: 7,
+      depth: 0,
+    }
+    const reflow: Signal = { kind: 'forced-reflow', at: 120, duration: 3, stack: [] }
+
+    const [episode] = correlate([interaction, render, reflow])
+    const reflowMember = episode!.members.find((m) => m.signal.kind === 'forced-reflow')!
+
+    expect(reflowMember.causedBy).toBeUndefined()
+    expect(reflowMember.confidence).toBe('co-occurred')
+  })
 })

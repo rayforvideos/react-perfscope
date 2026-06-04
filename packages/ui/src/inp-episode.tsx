@@ -80,10 +80,19 @@ export function InpEpisode({ signals }: { signals: Signal[] }) {
                 <span style={{ color: '#555' }}>—</span>
               ) : (
                 members.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '1px 0', color: '#ccc' }}>
+                  <div
+                    key={i}
+                    data-member-kind={m.signal.kind}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '1px 0', color: '#ccc' }}
+                  >
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {memberLabel(m)}
                     </span>
+                    {m.causedBy && (
+                      <span style={{ flex: '0 0 auto', color: '#888' }}>
+                        ← {m.causedBy.component}
+                      </span>
+                    )}
                     {m.confidence === 'caused' && (
                       <span
                         style={{
