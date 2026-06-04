@@ -60,8 +60,20 @@ export function createRenderCollector(): Collector {
     // One coalesced signal per commit. The root describes the cascade; the
     // duration is the commit's total render time.
     const root2 = cascadeRoot(members)
+    // fiber.actualDuration is inclusive of descendants, so summing every member
+    // double-counts nested render time. Members arrive in pre-order with depth,
+    // so sum only the "forest roots" — members with no rendered ancestor — whose
+    // inclusive durations already cover their subtrees. This matches what React's
+    // own Profiler reports for the commit.
     let total = 0
-    for (const m of members) total += m.duration
+    const ancestorDepths: number[] = []
+    for (const m of members) {
+      while (ancestorDepths.length > 0 && ancestorDepths[ancestorDepths.length - 1]! >= m.depth) {
+        ancestorDepths.pop()
+      }
+      if (ancestorDepths.length === 0) total += m.duration
+      ancestorDepths.push(m.depth)
+    }
     emit({
       kind: 'render',
       at,

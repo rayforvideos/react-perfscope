@@ -62,6 +62,31 @@ describe('render collector', () => {
     }
   })
 
+  it('reports commit duration as the root inclusive time, not the sum of nested fibers', () => {
+    // fiber.actualDuration is hierarchical: a parent already includes its
+    // children's render time. Summing parent + children double-counts. React's
+    // own Profiler reports the root inclusive time (here 5), so should we.
+    const collector = createRenderCollector()
+    const got: Signal[] = []
+    collector.activate((s) => got.push(s))
+    try {
+      function Parent() { return null }
+      function ChildA() { return null }
+      function ChildB() { return null }
+      const parent = makeFiber(Parent, { actualDuration: 5 })
+      const childA = makeFiber(ChildA, { return: parent, actualDuration: 2 })
+      const childB = makeFiber(ChildB, { return: parent, actualDuration: 2 })
+      parent.child = childA
+      childA.sibling = childB
+      fireCommit(parent)
+
+      const commit = got[0] as RenderSignal
+      expect(commit.duration).toBe(5)
+    } finally {
+      collector.deactivate()
+    }
+  })
+
   it('skips host fibers (DOM tags) when emitting renders', () => {
     const collector = createRenderCollector()
     const got: Signal[] = []
