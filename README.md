@@ -28,6 +28,24 @@ Start the dev server. A floating "rec" button appears in the bottom-right. Click
 
 Webpack users use `@react-perfscope/webpack` instead — see its README.
 
+**Next.js** (App Router, Next 15.3+) needs no plugin — add an `instrumentation-client.ts` at your project root; it works under both Turbopack and webpack:
+
+```ts
+// instrumentation-client.ts
+import 'react-perfscope/auto'
+```
+
+Optionally enable long-task hot-function attribution by sending the `Document-Policy: js-profiling` header:
+
+```ts
+// next.config.ts
+export default {
+  async headers() {
+    return [{ source: '/:path*', headers: [{ key: 'Document-Policy', value: 'js-profiling' }] }]
+  },
+}
+```
+
 If you'd rather wire it manually, install `react-perfscope` and add `import 'react-perfscope/auto'` at the **very top** of your entry file (before `react-dom` is imported).
 
 ## Demo
@@ -57,7 +75,7 @@ This is a pnpm monorepo. Six published packages:
 
 ## Status
 
-Published on npm (`0.5.0`). Compatible with React 18 & 19, Vite 5–8, and webpack 5. Production-safe: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
+Published on npm (`0.5.0`). Compatible with React 18 & 19, Vite 5–8, webpack 5, and Next.js (App Router). Production-safe: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
 
 ## Does it skew the numbers it reports?
 
@@ -121,6 +139,24 @@ dev 서버를 띄우면 화면 오른쪽 아래에 떠있는 "rec" 버튼이 보
 
 Webpack 사용자는 `@react-perfscope/webpack`을 쓰세요 — 해당 README 참고.
 
+**Next.js** (App Router, Next 15.3+)는 플러그인이 필요 없습니다 — 프로젝트 루트에 `instrumentation-client.ts`를 만들어 import 한 줄만 넣으면 Turbopack·webpack 모두에서 동작합니다:
+
+```ts
+// instrumentation-client.ts
+import 'react-perfscope/auto'
+```
+
+롱 태스크 핫펑션 귀속까지 켜려면 `Document-Policy: js-profiling` 헤더를 보내세요 (선택):
+
+```ts
+// next.config.ts
+export default {
+  async headers() {
+    return [{ source: '/:path*', headers: [{ key: 'Document-Policy', value: 'js-profiling' }] }]
+  },
+}
+```
+
 수동으로 연결하고 싶다면, `react-perfscope`를 설치하고 entry 파일 **가장 맨 위에** `import 'react-perfscope/auto'`를 넣으세요 (`react-dom` import보다 먼저).
 
 ## 데모
@@ -150,7 +186,7 @@ pnpm 모노레포입니다. 6개 published 패키지:
 
 ## 상태
 
-npm 게시됨 (`0.5.0`). React 18·19, Vite 5–8, webpack 5 호환. 프로덕션 안전성: `NODE_ENV === 'production'`이면 auto 부트스트랩이 자동으로 빠지고, 빌드 플러그인도 dev 모드 외에는 no-op입니다.
+npm 게시됨 (`0.5.0`). React 18·19, Vite 5–8, webpack 5, Next.js(App Router) 호환. 프로덕션 안전성: `NODE_ENV === 'production'`이면 auto 부트스트랩이 자동으로 빠지고, 빌드 플러그인도 dev 모드 외에는 no-op입니다.
 
 ## 측정 자체를 왜곡하지 않나요?
 
