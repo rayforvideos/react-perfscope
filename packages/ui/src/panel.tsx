@@ -1036,6 +1036,21 @@ export function Panel(props: PanelProps) {
               }}
             />
           )}
+          {activeKind === 'layout-shift' && activeTab !== 'timeline' && (
+            <div
+              style={{
+                padding: '6px 8px',
+                marginBottom: '6px',
+                fontSize: '11px',
+                color: '#888',
+                background: '#141414',
+                border: '1px solid #1f1f1f',
+                borderRadius: '6px',
+              }}
+            >
+              {t.layoutShiftHint}
+            </div>
+          )}
           {activeKind === 'interaction' && activeTab !== 'timeline' && (
             <>
               <InpEpisode signals={result.signals} />

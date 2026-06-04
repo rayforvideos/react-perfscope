@@ -107,6 +107,8 @@ export interface Strings {
   processingTime: string
   presentation: string
   interactionThresholdHint: string
+  // layout-shift
+  layoutShiftHint: string
 }
 
 const en: Strings = {
@@ -195,6 +197,7 @@ const en: Strings = {
   processingTime: 'processing',
   presentation: 'presentation',
   interactionThresholdHint: 'Only interactions ≥40ms are shown — INP surfaces the slow ones; fast clicks are omitted.',
+  layoutShiftHint: 'Every layout shift, including ones triggered by your interactions. The CLS metric excludes input-driven shifts, so this is not a CLS score.',
 }
 
 const KIND_LABELS_KO: Record<SignalKind, string> = {
@@ -293,6 +296,7 @@ const ko: Strings = {
   processingTime: '처리',
   presentation: '화면 반영',
   interactionThresholdHint: '40ms 이상 걸린 상호작용만 표시돼요 — 느린 것만 INP로 잡고, 빠른 클릭은 생략해요.',
+  layoutShiftHint: '사용자 인터랙션으로 생긴 것까지 포함한 모든 레이아웃 시프트예요. CLS 지표는 입력으로 인한 시프트를 제외하므로, 이건 CLS 점수가 아니에요.',
 }
 
 export const STRINGS: Record<Lang, Strings> = { en, ko }

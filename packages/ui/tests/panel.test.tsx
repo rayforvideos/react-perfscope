@@ -99,6 +99,16 @@ describe('Panel', () => {
     cleanup()
   })
 
+  it('clarifies that the layout-shift tab is not the CLS metric', () => {
+    const result = makeResult([
+      { kind: 'layout-shift', at: 10, value: 0.05, sources: [] },
+    ])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    fireEvent.click(container.querySelector('[data-kind="layout-shift"]')!)
+    expect(container.textContent).toMatch(/not a CLS score/i)
+    cleanup()
+  })
+
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn()
     const result = makeResult([])
