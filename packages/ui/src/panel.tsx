@@ -32,6 +32,7 @@ import { SummaryHeader } from './summary'
 import { Timeline } from './timeline'
 import { RenderInsights } from './render-insights'
 import { InpEpisode } from './inp-episode'
+import { LongTaskEpisode } from './long-task-episode'
 import { signalMatchesFilter } from './filter'
 import { useI18n, type Lang, type Strings } from './i18n'
 
@@ -1035,6 +1036,9 @@ export function Panel(props: PanelProps) {
                 setExpandedKey(null)
               }}
             />
+          )}
+          {activeKind === 'long-task' && activeTab !== 'timeline' && (
+            <LongTaskEpisode signals={result.signals} />
           )}
           {activeKind === 'layout-shift' && activeTab !== 'timeline' && (
             <div

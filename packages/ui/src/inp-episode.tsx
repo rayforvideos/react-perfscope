@@ -1,7 +1,8 @@
 import { h } from 'preact'
 import { correlate } from '@react-perfscope/core'
-import type { Signal, Episode, EpisodeMember, InpPhase } from '@react-perfscope/core'
+import type { Signal, Episode, InpPhase } from '@react-perfscope/core'
 import { useI18n } from './i18n'
+import { EpisodeMemberList } from './episode-shared'
 
 type PhaseLabelKey = 'inputDelay' | 'processingTime' | 'presentation'
 
@@ -26,16 +27,6 @@ function phaseMs(episode: Episode, phase: InpPhase): number {
   const a = episode.anchor
   if (a.kind !== 'interaction') return 0
   return phase === 'input-delay' ? a.inputDelay : phase === 'processing' ? a.processing : a.presentation
-}
-
-function memberLabel(m: EpisodeMember): string {
-  const s = m.signal
-  if (s.kind === 'render') return `${s.component} (${s.reason})`
-  if (s.kind === 'forced-reflow') {
-    const top = s.stack[0]
-    return top ? `forced reflow · ${top.file}:${top.line}` : 'forced reflow'
-  }
-  return `layout shift ${s.value.toFixed(3)}`
 }
 
 export function InpEpisode({ signals }: { signals: Signal[] }) {
@@ -76,40 +67,7 @@ export function InpEpisode({ signals }: { signals: Signal[] }) {
               <div style={{ color: '#666', fontSize: '10px' }}>{Math.round(phaseMs(episode, phase))}ms</div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {members.length === 0 ? (
-                <span style={{ color: '#555' }}>—</span>
-              ) : (
-                members.map((m, i) => (
-                  <div
-                    key={i}
-                    data-member-kind={m.signal.kind}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '1px 0', color: '#ccc' }}
-                  >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {memberLabel(m)}
-                    </span>
-                    {m.causedBy && (
-                      <span style={{ flex: '0 0 auto', color: '#888' }}>
-                        ← {m.causedBy.component}
-                      </span>
-                    )}
-                    {m.confidence === 'caused' && (
-                      <span
-                        style={{
-                          flex: '0 0 auto',
-                          fontSize: '9px',
-                          color: '#e0a030',
-                          border: '1px solid #5a4410',
-                          borderRadius: '3px',
-                          padding: '0 4px',
-                        }}
-                      >
-                        caused
-                      </span>
-                    )}
-                  </div>
-                ))
-              )}
+              <EpisodeMemberList members={members} />
             </div>
           </div>
         )

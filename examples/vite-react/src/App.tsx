@@ -206,7 +206,7 @@ function RenderReflowDemo() {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    for (let i = 0; i < 2000; i++) {
+    for (let i = 0; i < 4000; i++) {
       el.style.width = `${100 + (i % 12)}px`
       void el.offsetWidth
     }
