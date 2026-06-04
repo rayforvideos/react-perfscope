@@ -31,6 +31,7 @@ import {
 import { SummaryHeader } from './summary'
 import { Timeline } from './timeline'
 import { RenderInsights } from './render-insights'
+import { signalMatchesFilter } from './filter'
 import { useI18n, type Lang, type Strings } from './i18n'
 
 // Render-reason colors. `parent` is amber because it's the avoidable case —
@@ -795,6 +796,7 @@ export function Panel(props: PanelProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [groupMode, setGroupMode] = useState<Partial<Record<SignalKind, GroupMode>>>({})
   const [sortMode, setSortMode] = useState<Partial<Record<SignalKind, SortMode>>>({})
+  const [filterText, setFilterText] = useState<Partial<Record<SignalKind, string>>>({})
   const activeOverlayCount = useRef(0)
 
   useEffect(() => () => hideAllOverlays(), [])
@@ -991,6 +993,17 @@ export function Panel(props: PanelProps) {
                   </select>
                 </label>
               )}
+              <input
+                type="text"
+                aria-label={t.filterAria}
+                placeholder={t.filterPlaceholder}
+                value={filterText[activeKind] ?? ''}
+                onInput={(e) => {
+                  setFilterText({ ...filterText, [activeKind]: (e.target as HTMLInputElement).value })
+                  setExpandedKey(null)
+                }}
+                style={{ marginLeft: 'auto', background: '#1a1a1a', color: '#e6e6e6', border: '1px solid #2a2a2a', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', width: '120px' }}
+              />
             </div>
           )}
 
@@ -1013,9 +1026,9 @@ export function Panel(props: PanelProps) {
           )}
           {activeKind === 'render' && activeTab !== 'timeline' && (
             <RenderInsights
-              signals={grouped.render.flatMap((s) =>
-                s.kind === 'render' ? s.members ?? [s] : []
-              )}
+              signals={grouped.render
+                .flatMap((s) => (s.kind === 'render' ? s.members ?? [s] : []))
+                .filter((s) => signalMatchesFilter(s, filterText.render ?? ''))}
               onSelect={() => {
                 setGroupMode({ ...groupMode, render: 'component' })
                 setExpandedKey(null)
@@ -1039,9 +1052,12 @@ export function Panel(props: PanelProps) {
           )}
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', flexGrow: 1, display: activeTab === 'timeline' ? 'none' : undefined }}>
             {activeKind && (() => {
+              const filtered = grouped[activeKind].filter((s) =>
+                signalMatchesFilter(s, filterText[activeKind] ?? ''),
+              )
               const baseSignals = (sortMode[activeKind] ?? 'chronological') === 'severity'
-                ? sortSignalsBySeverity(grouped[activeKind])
-                : grouped[activeKind]
+                ? sortSignalsBySeverity(filtered)
+                : filtered
               return groupSignals(baseSignals, groupMode[activeKind] ?? 'chronological', activeKind)
             })().map((g, gi) => {
               const currentMode = groupMode[activeKind] ?? 'chronological'
@@ -1109,6 +1125,15 @@ export function Panel(props: PanelProps) {
               )
             })}
           </ul>
+          {activeKind &&
+            activeTab !== 'timeline' &&
+            (filterText[activeKind] ?? '').trim() !== '' &&
+            grouped[activeKind].length > 0 &&
+            grouped[activeKind].every((s) => !signalMatchesFilter(s, filterText[activeKind] ?? '')) && (
+              <div style={{ padding: '12px 8px', fontSize: '11px', color: '#888' }}>
+                {t.filterNoMatches}
+              </div>
+            )}
         </>
       )}
     </div>

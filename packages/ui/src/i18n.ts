@@ -19,6 +19,9 @@ export interface Strings {
   sort: string
   sortChronological: string
   sortSeverity: string
+  filterPlaceholder: string
+  filterAria: string
+  filterNoMatches: string
   groupBy: string
   groupChronological: string
   groupComponent: string
@@ -115,6 +118,9 @@ const en: Strings = {
   sort: 'Sort',
   sortChronological: 'chronological',
   sortSeverity: 'severity (worst first)',
+  filterPlaceholder: 'Filter…',
+  filterAria: 'Filter signals',
+  filterNoMatches: 'No signals match the filter.',
   groupBy: 'Group by',
   groupChronological: 'chronological',
   groupComponent: 'component',
@@ -210,6 +216,9 @@ const ko: Strings = {
   sort: '정렬',
   sortChronological: '시간순',
   sortSeverity: '심각도순 (높은 것부터)',
+  filterPlaceholder: '필터…',
+  filterAria: '시그널 필터',
+  filterNoMatches: '필터와 일치하는 시그널이 없어요.',
   groupBy: '그룹화',
   groupChronological: '시간순',
   groupComponent: '컴포넌트',
