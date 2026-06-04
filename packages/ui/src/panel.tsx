@@ -15,6 +15,7 @@ import type {
   WebVitalSignal,
   StackFrame,
 } from '@react-perfscope/core'
+import { unsupportedKinds } from '@react-perfscope/core'
 import type { WidgetPosition } from './types'
 import { showOverlay, hideOverlay, hideAllOverlays, showArrow, hideArrow } from './overlay'
 import {
@@ -786,6 +787,7 @@ export function Panel(props: PanelProps) {
   const { t } = useI18n()
   const grouped = useMemo(() => groupByKind(result.signals), [result.signals])
   const kindsPresent = KIND_ORDER.filter((k) => grouped[k].length > 0)
+  const unsupported = useMemo(() => unsupportedKinds(), [])
   const hasTimelineSignals =
     result.signals.some((s) => s.kind !== 'web-vital') ||
     (result.heapSamples?.length ?? 0) > 0 ||
@@ -894,6 +896,22 @@ export function Panel(props: PanelProps) {
           </button>
         </div>
       </header>
+
+      {unsupported.length > 0 && (
+        <div
+          style={{
+            padding: '6px 8px',
+            marginBottom: '8px',
+            fontSize: '11px',
+            color: '#888',
+            background: '#141414',
+            border: '1px solid #1f1f1f',
+            borderRadius: '6px',
+          }}
+        >
+          {t.unsupportedInBrowser(unsupported.map((k) => t.kindLabel(k)).join(', '))}
+        </div>
+      )}
 
       {kindsPresent.length === 0 && (
         <div style={{ color: '#888' }}>{t.noSignals}</div>

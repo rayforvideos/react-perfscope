@@ -11,6 +11,10 @@ export type { FetchMap, SourceMapResolver, CreateSourceMapResolverOptions } from
 // Self-request registry (excludes the tool's own traffic from network signals)
 export { markSelfRequest, isSelfRequest } from './self-requests'
 
+// Browser capability detection (which signal kinds this browser can measure)
+export { detectCapabilities, unsupportedKinds } from './capabilities'
+export type { Capabilities } from './capabilities'
+
 // Cross-signal correlation (groups signals into interaction/long-task episodes)
 export { correlate } from './correlate'
 export type { Episode, EpisodeMember, AnchorSignal, LinkConfidence, InpPhase, CommitCause } from './correlate'

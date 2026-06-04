@@ -109,6 +109,24 @@ describe('Panel', () => {
     cleanup()
   })
 
+  it('notes which signal kinds the browser cannot measure', () => {
+    const realPO = (globalThis as { PerformanceObserver?: unknown }).PerformanceObserver
+    ;(globalThis as { PerformanceObserver?: unknown }).PerformanceObserver = {
+      supportedEntryTypes: ['resource', 'paint', 'navigation'],
+    }
+    try {
+      const result = makeResult([
+        { kind: 'render', at: 0, component: 'A', reason: 'mount', commitId: 0, depth: 0, duration: 1 },
+      ])
+      const { container } = render(<Panel result={result} onClose={() => {}} />)
+      expect(container.textContent).toMatch(/not measurable in this browser/i)
+      expect(container.textContent).toMatch(/long-task/)
+      cleanup()
+    } finally {
+      ;(globalThis as { PerformanceObserver?: unknown }).PerformanceObserver = realPO
+    }
+  })
+
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn()
     const result = makeResult([])

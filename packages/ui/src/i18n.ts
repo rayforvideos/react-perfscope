@@ -109,6 +109,8 @@ export interface Strings {
   interactionThresholdHint: string
   // layout-shift
   layoutShiftHint: string
+  // browser capability
+  unsupportedInBrowser: (kinds: string) => string
 }
 
 const en: Strings = {
@@ -198,6 +200,7 @@ const en: Strings = {
   presentation: 'presentation',
   interactionThresholdHint: 'Only interactions ≥40ms are shown — INP surfaces the slow ones; fast clicks are omitted.',
   layoutShiftHint: 'Every layout shift, including ones triggered by your interactions. The CLS metric excludes input-driven shifts, so this is not a CLS score.',
+  unsupportedInBrowser: (kinds) => `Not measurable in this browser (the API is missing, not that nothing happened): ${kinds}.`,
 }
 
 const KIND_LABELS_KO: Record<SignalKind, string> = {
@@ -297,6 +300,7 @@ const ko: Strings = {
   presentation: '화면 반영',
   interactionThresholdHint: '40ms 이상 걸린 상호작용만 표시돼요 — 느린 것만 INP로 잡고, 빠른 클릭은 생략해요.',
   layoutShiftHint: '사용자 인터랙션으로 생긴 것까지 포함한 모든 레이아웃 시프트예요. CLS 지표는 입력으로 인한 시프트를 제외하므로, 이건 CLS 점수가 아니에요.',
+  unsupportedInBrowser: (kinds) => `이 브라우저에선 측정할 수 없어요 (아무 일도 없던 게 아니라 API가 없음): ${kinds}.`,
 }
 
 export const STRINGS: Record<Lang, Strings> = { en, ko }
