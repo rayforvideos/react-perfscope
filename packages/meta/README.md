@@ -2,6 +2,8 @@
 
 Performance debugging tool for React 18+ apps. Records forced reflows, layout shifts, long tasks, web vitals, network, interactions, and React component renders during development.
 
+![react-perfscope panel: overview, an expanded forced-reflow call stack, and the render tab](https://raw.githubusercontent.com/rayforvideos/react-perfscope/master/assets/panel.gif)
+
 This meta package re-exports everything from `@react-perfscope/core`, `@react-perfscope/react`, and `@react-perfscope/ui`, plus a side-effect `react-perfscope/auto` entry that bootstraps the full UI in one import.
 
 ## Quickstart
@@ -37,6 +39,10 @@ const unmount = mount({ recorder, position: 'top-right' })
 ## Production safety
 
 `react-perfscope/auto` bails when `process.env.NODE_ENV === 'production'`. The build plugins also exclude themselves from production builds. The manual API has no production guard — use it only behind your own dev/prod check.
+
+## Contributing
+
+If this is useful to you, a ⭐ on [GitHub](https://github.com/rayforvideos/react-perfscope) helps the project grow. Bug reports, feature ideas, and PRs are welcome — open an [issue](https://github.com/rayforvideos/react-perfscope/issues) to start.
 
 ---
 
@@ -81,3 +87,7 @@ const unmount = mount({ recorder, position: 'top-right' })
 ## 프로덕션 안전성
 
 `react-perfscope/auto`는 `process.env.NODE_ENV === 'production'`이면 아무것도 하지 않는다. 빌드 플러그인도 프로덕션 빌드에서는 자동으로 빠진다. 수동 API에는 프로덕션 가드가 없으니, 직접 dev/prod 분기를 만들어서 써야 한다.
+
+## 기여
+
+도움이 되셨다면 [GitHub](https://github.com/rayforvideos/react-perfscope) ⭐ 하나가 프로젝트 성장에 큰 힘이 됩니다. 버그 제보, 기능 제안, PR 모두 환영해요 — [이슈](https://github.com/rayforvideos/react-perfscope/issues)로 편하게 시작해 주세요.
