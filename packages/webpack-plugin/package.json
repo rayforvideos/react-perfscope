@@ -1,6 +1,6 @@
 {
   "name": "@react-perfscope/webpack",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "webpack plugin that auto-mounts react-perfscope in dev.",
   "keywords": [
     "webpack",
