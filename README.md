@@ -67,6 +67,9 @@ react-perfscope instruments in-band — it runs on the same main thread as your 
 - **Forced reflow.** On a pathological layout-thrash loop — 5,000 reads where *every* read forces a synchronous layout — recording added roughly **1–2µs per read** (~30ms → ~38ms). Real code forces layout far less often, so the real-world cost is much smaller. All reads in one synchronous turn are coalesced into a single signal, so the call stack is captured **once per turn**, not per read.
 - **React renders.** Per commit the collector adds about **0.01ms** for a typical commit (a handful of components). Even a pathological re-render of **800 components** costs about **0.5ms**, because the whole commit is coalesced into one signal (down from ~6ms before per-commit coalescing landed in 0.3.0).
 - **The tool excludes itself.** Its own stack frames are filtered out of long-task hot-function attribution, and its own network requests (source-map fetches) are dropped from network signals — so you never see react-perfscope blamed for your app's time.
+- **Layout shifts aren't CLS.** The list includes input-driven shifts that the CLS metric excludes — so you can see what your own interactions moved, rather than a CLS score.
+
+These numbers track the browser's own measurements closely: long-task / INP / layout-shift values come from the same native Performance APIs that Chrome DevTools and `web-vitals` read, and per-commit render durations match React's Profiler.
 
 And none of this ships to production: the auto bootstrap and build plugins disable themselves outside dev.
 
@@ -157,6 +160,9 @@ react-perfscope는 인-밴드로 계측합니다 — 사용자 코드와 같은 
 - **강제 리플로우.** 모든 읽기가 동기 레이아웃을 강제하는 병적인 thrash 루프(읽기 5,000회)에서 녹화는 **읽기당 약 1–2µs**를 더했습니다 (~30ms → ~38ms). 실제 코드는 레이아웃을 훨씬 덜 강제하므로 실사용 비용은 훨씬 작습니다. 한 동기 턴의 모든 읽기는 한 신호로 합쳐지므로 콜 스택은 **턴당 1회만** 캡처합니다 (읽기마다가 아님).
 - **React 렌더.** 일반 커밋(컴포넌트 몇 개)은 커밋당 약 **0.01ms**를 더합니다. 병적으로 **800개 컴포넌트**가 리렌더되는 커밋도 약 **0.5ms**인데, 커밋 전체가 한 신호로 합쳐지기 때문입니다 (0.3.0의 커밋당 코얼레싱 전에는 ~6ms였음).
 - **도구는 자기 자신을 제외합니다.** long-task 핫펑션 attribution에서 도구 자신의 스택 프레임을 걸러내고, 도구 자신의 네트워크 요청(소스맵 fetch)도 network 신호에서 제외합니다 — 그래서 앱의 시간이 react-perfscope 탓으로 잡히는 일이 없습니다.
+- **레이아웃 시프트는 CLS가 아닙니다.** CLS 지표가 제외하는 입력 기반 시프트까지 포함하므로 — CLS 점수가 아니라, 당신의 인터랙션이 무엇을 움직였는지 보기 위한 목록입니다.
+
+이 수치들은 브라우저 자체 측정값과 거의 일치합니다: long-task / INP / layout-shift 값은 Chrome DevTools와 `web-vitals`가 읽는 바로 그 네이티브 Performance API에서 나오고, 커밋별 렌더 시간은 React Profiler와 일치합니다.
 
 그리고 이 중 어떤 것도 프로덕션에 실리지 않습니다: auto 부트스트랩과 빌드 플러그인은 dev 밖에서 스스로 비활성화됩니다.
 
