@@ -66,6 +66,39 @@ describe('Panel', () => {
     cleanup()
   })
 
+  it('breaks the worst interaction into INP phases in the interaction tab', () => {
+    const interaction: Signal = {
+      kind: 'interaction',
+      at: 100,
+      eventType: 'click',
+      target: '#go',
+      duration: 80,
+      inputDelay: 10,
+      processing: 40,
+      presentation: 30,
+    }
+    const renderSignal: Signal = {
+      kind: 'render',
+      at: 120,
+      component: 'SlowList',
+      reason: 'state',
+      duration: 5,
+      commitId: 1,
+      depth: 0,
+    }
+    const result = makeResult([interaction, renderSignal])
+    const { container } = render(<Panel result={result} onClose={() => {}} />)
+    fireEvent.click(container.querySelector('[data-kind="interaction"]')!)
+
+    expect(container.querySelector('[data-inp-phase="input-delay"]')).toBeTruthy()
+    expect(container.querySelector('[data-inp-phase="processing"]')).toBeTruthy()
+    expect(container.querySelector('[data-inp-phase="presentation"]')).toBeTruthy()
+
+    const processing = container.querySelector('[data-inp-phase="processing"]')!
+    expect(processing.textContent).toContain('SlowList')
+    cleanup()
+  })
+
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn()
     const result = makeResult([])

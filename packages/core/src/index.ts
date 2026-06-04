@@ -11,6 +11,10 @@ export type { FetchMap, SourceMapResolver, CreateSourceMapResolverOptions } from
 // Self-request registry (excludes the tool's own traffic from network signals)
 export { markSelfRequest, isSelfRequest } from './self-requests'
 
+// Cross-signal correlation (groups signals into interaction/long-task episodes)
+export { correlate } from './correlate'
+export type { Episode, EpisodeMember, AnchorSignal, LinkConfidence, InpPhase } from './correlate'
+
 // Collectors
 export { createLongTasksCollector } from './collectors/long-tasks'
 export { createForcedReflowCollector } from './collectors/forced-reflow'
