@@ -1,6 +1,5 @@
 # react-perfscope
 
-[![CI](https://github.com/rayforvideos/react-perfscope/actions/workflows/ci.yml/badge.svg)](https://github.com/rayforvideos/react-perfscope/actions/workflows/ci.yml)
 
 Performance debugging tool for React 18+ apps. Records forced reflows, layout shifts, long tasks, web vitals, network requests, interactions, and React component renders during development — and visualises them in a floating UI panel.
 
