@@ -35,6 +35,7 @@ async function boot(): Promise<void> {
         duration: r.duration,
         heapSamples: r.heapSamples,
         frames: r.frames,
+        leakSuspects: r.leakSuspects,
         episodes: correlate(r.signals),
       }
     },

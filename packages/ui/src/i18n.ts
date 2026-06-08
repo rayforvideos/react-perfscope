@@ -68,6 +68,10 @@ export interface Strings {
   heapUnsupported: string
   heapExtensionHint: string
   heapTrendLabel: (cls: HeapTrendClass) => string
+  // leaks
+  leaksTitle: string
+  leakHint: string
+  leakSuspect: (component: string, retained: number, unmounted: number) => string
   // frame rate
   fpsLabel: string
   fpsUnsupported: string
@@ -166,6 +170,11 @@ const en: Strings = {
     'Heap size includes browser extensions injected into the page (e.g. React DevTools), so it can rise even while your app is idle. For app-only measurement, record in an incognito window or a profile with extensions disabled.',
   heapTrendLabel: (cls) =>
     cls === 'leak-suspected' ? 'leak suspected' : cls === 'growing' ? 'growing' : 'stable',
+  leaksTitle: 'Suspected leaks',
+  leakHint:
+    'Components whose unmounted instances stayed in memory with a count that kept climbing. Shows which component leaks and how many instances — not what retains them (a heap snapshot, unavailable in-page, is needed for that).',
+  leakSuspect: (component, retained, unmounted) =>
+    `${component} — ${retained} retained of ${unmounted} unmounted, climbing`,
   fpsLabel: 'fps',
   fpsUnsupported: 'frame timing unavailable',
   fpsBadge: (minFps, dropped) => `min ${minFps}fps · ${dropped} dropped`,
@@ -266,6 +275,11 @@ const ko: Strings = {
     '힙 크기엔 페이지에 주입된 브라우저 확장(예: React DevTools) 메모리도 포함돼요. 그래서 앱이 idle이어도 올라갈 수 있어요. 앱만 정확히 재려면 시크릿 창이나 확장이 꺼진 프로필에서 녹화하세요.',
   heapTrendLabel: (cls) =>
     cls === 'leak-suspected' ? '누수 의심' : cls === 'growing' ? '증가 중' : '안정',
+  leaksTitle: '누수 의심',
+  leakHint:
+    '언마운트됐는데 메모리에 남고 그 수가 계속 늘어난 컴포넌트예요. 어떤 컴포넌트가 몇 개 누수하는지는 보여주지만, 무엇이 붙잡고 있는지는(힙 스냅샷이 필요한데 in-page에선 불가) 알 수 없어요.',
+  leakSuspect: (component, retained, unmounted) =>
+    `${component} — 언마운트 ${unmounted}개 중 ${retained}개 보유, 증가 중`,
   fpsLabel: 'fps',
   fpsUnsupported: '프레임 측정 미지원',
   fpsBadge: (minFps, dropped) => `최저 ${minFps}fps · 드랍 ${dropped}`,

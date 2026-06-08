@@ -1,4 +1,4 @@
-import type { Signal, HeapSample, Episode } from '@react-perfscope/core'
+import type { Signal, HeapSample, Episode, LeakSuspect } from '@react-perfscope/core'
 import type { Scenarios } from './fixtures/scenarios'
 
 export interface FinalizedResult {
@@ -6,6 +6,7 @@ export interface FinalizedResult {
   duration: number
   heapSamples?: HeapSample[]
   frames?: number[]
+  leakSuspects?: LeakSuspect[]
   episodes: Episode[]
 }
 

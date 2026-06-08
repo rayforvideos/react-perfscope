@@ -75,6 +75,19 @@ export const scenarios = {
   async idle(ms: number): Promise<void> {
     await new Promise((r) => setTimeout(r, ms))
   },
+
+  // Mount then unmount a deliberately-leaking <Leaky> component `rounds` times,
+  // spaced so the leak sampler captures the climbing retained count. Each round
+  // uses a fresh key so a new instance mounts and the previous one unmounts
+  // (and leaks).
+  async leak(rounds: number): Promise<void> {
+    for (let i = 0; i < rounds; i++) {
+      store.setState({ leakOn: true, leakKey: i })
+      await nextFrame()
+      store.setState({ leakOn: false })
+      await new Promise((r) => setTimeout(r, 250))
+    }
+  },
 }
 
 export type Scenarios = typeof scenarios

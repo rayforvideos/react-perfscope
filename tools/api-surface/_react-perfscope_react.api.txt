@@ -1,10 +1,12 @@
 Collector: interface Collector { readonly kind: CollectorKind; activate(emit: (signal: Signal) => void): void; deactivate(): void; }
 MinimalFiber: interface MinimalFiber { stateNode: unknown; type: unknown; return: MinimalFiber | null; child: MinimalFiber | null; sibling: MinimalFiber | null; alternate: MinimalFiber | null; elementType?: unknown; memoizedProps?: unknown; actualDuration?: number; flags?: number; subtreeFlags?: number; }
 ReactAdapter: interface ReactAdapter { install(): void; resolveComponentFromElement(el: HTMLElement): string | null; }
-ReactDevToolsHook: interface ReactDevToolsHook { onCommitFiberRoot?: (rendererId: number, root: { current: MinimalFiber; }, priorityLevel?: unknown) => void; supportsFiber?: boolean; inject?: (internals: unknown) => number; [key: string]: unknown; }
+ReactDevToolsHook: interface ReactDevToolsHook { onCommitFiberRoot?: (rendererId: number, root: { current: MinimalFiber; }, priorityLevel?: unknown) => void; supportsFiber?: boolean; inject?: (internals: unknown) => number; onCommitFiberUnmount?: (rendererId: number, fiber: MinimalFiber) => void; [key: string]: unknown; }
+createLeakCollector: function createLeakCollector(): LeakCollector;
 createRenderCollector: function createRenderCollector(): Collector;
 fiberComponentName: function fiberComponentName(fiber: MinimalFiber | null): string | null;
 installDevToolsHook: function installDevToolsHook(listener: CommitListener): () => void;
+onFiberUnmount: function onFiberUnmount(listener: UnmountListener): () => void;
 resolveComponentFromElement: function resolveComponentFromElement(el: HTMLElement): string | null;
 uninstallDevToolsHook: function uninstallDevToolsHook(): void;
 walkChangedFibers: function walkChangedFibers(root: MinimalFiber, visit: (fiber: MinimalFiber, depth: number) => void, opts?: WalkOptions): void;

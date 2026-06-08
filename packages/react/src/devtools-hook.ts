@@ -1,6 +1,7 @@
 import type { MinimalFiber, ReactDevToolsHook } from './types'
 
 type CommitListener = (root: { current: MinimalFiber }, rendererId: number) => void
+type UnmountListener = (fiber: MinimalFiber, rendererId: number) => void
 
 const HOOK_KEY = '__REACT_DEVTOOLS_GLOBAL_HOOK__'
 
@@ -9,8 +10,10 @@ interface GlobalWithHook {
 }
 
 const listeners = new Set<CommitListener>()
+const unmountListeners = new Set<UnmountListener>()
 let ourHook: ReactDevToolsHook | null = null
 let chainedOriginal: ReactDevToolsHook['onCommitFiberRoot'] | null = null
+let chainedUnmount: ((rendererId: number, fiber: MinimalFiber) => void) | null = null
 
 function ensureHookInstalled(): void {
   const g = globalThis as GlobalWithHook
@@ -21,6 +24,14 @@ function ensureHookInstalled(): void {
   chainedOriginal =
     existing && existing !== ourHook && typeof existing.onCommitFiberRoot === 'function'
       ? existing.onCommitFiberRoot
+      : null
+  const existingUnmount =
+    existing && existing !== ourHook
+      ? (existing as { onCommitFiberUnmount?: unknown }).onCommitFiberUnmount
+      : null
+  chainedUnmount =
+    typeof existingUnmount === 'function'
+      ? (existingUnmount as (rendererId: number, fiber: MinimalFiber) => void)
       : null
 
   const hook: ReactDevToolsHook = existing && existing !== ourHook ? existing : {}
@@ -57,9 +68,6 @@ function ensureHookInstalled(): void {
   if (typeof (hook as Record<string, unknown>)['checkDCE'] !== 'function') {
     ;(hook as Record<string, unknown>)['checkDCE'] = () => {}
   }
-  if (typeof (hook as Record<string, unknown>)['onCommitFiberUnmount'] !== 'function') {
-    ;(hook as Record<string, unknown>)['onCommitFiberUnmount'] = () => {}
-  }
   if (typeof (hook as Record<string, unknown>)['onPostCommitFiberRoot'] !== 'function') {
     ;(hook as Record<string, unknown>)['onPostCommitFiberRoot'] = () => {}
   }
@@ -79,6 +87,26 @@ function ensureHookInstalled(): void {
       }
     }
   }
+  // React calls this for every fiber it unmounts (dev builds). We fan out to
+  // unmount listeners (the leak collector) and chain any pre-existing handler
+  // (e.g. the React DevTools extension), mirroring onCommitFiberRoot.
+  ;(hook as { onCommitFiberUnmount?: (rendererId: number, fiber: MinimalFiber) => void }).onCommitFiberUnmount =
+    (rendererId, fiber) => {
+      if (chainedUnmount) {
+        try {
+          chainedUnmount(rendererId, fiber)
+        } catch (err) {
+          console.warn('[react-perfscope] chained DevTools unmount hook threw:', err)
+        }
+      }
+      for (const cb of unmountListeners) {
+        try {
+          cb(fiber, rendererId)
+        } catch (err) {
+          console.warn('[react-perfscope] unmount listener threw:', err)
+        }
+      }
+    }
   g[HOOK_KEY] = hook
   ourHook = hook
 }
@@ -92,6 +120,19 @@ export function installDevToolsHook(listener: CommitListener): () => void {
 }
 
 /**
+ * Subscribe to fiber unmounts. React invokes `onCommitFiberUnmount` for each
+ * unmounted fiber in dev builds; the leak collector uses this to track which
+ * component instances were torn down. Returns an unsubscribe function.
+ */
+export function onFiberUnmount(listener: UnmountListener): () => void {
+  ensureHookInstalled()
+  unmountListeners.add(listener)
+  return () => {
+    unmountListeners.delete(listener)
+  }
+}
+
+/**
  * Clears all listeners and forgets our installed hook reference. Used by
  * tests to fully reset module state. Does NOT remove the hook from
  * globalThis — callers that want a fully clean slate must also
@@ -99,6 +140,8 @@ export function installDevToolsHook(listener: CommitListener): () => void {
  */
 export function uninstallDevToolsHook(): void {
   listeners.clear()
+  unmountListeners.clear()
   ourHook = null
   chainedOriginal = null
+  chainedUnmount = null
 }

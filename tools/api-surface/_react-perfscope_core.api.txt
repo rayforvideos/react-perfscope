@@ -2,7 +2,7 @@ AnchorSignal: type AnchorSignal = InteractionSignal | LongTaskSignal;
 BUFFER_CAP: BUFFER_CAP = 10000
 Capabilities: type Capabilities = Record<SignalKind, boolean>;
 Collector: interface Collector { readonly kind: CollectorKind; activate(emit: (signal: Signal) => void): void; deactivate(): void; }
-CollectorKind: type CollectorKind = SignalKind | 'heap' | 'frame';
+CollectorKind: type CollectorKind = SignalKind | 'heap' | 'frame' | 'leak';
 CommitCause: type CommitCause = { commitId: number; component: string; };
 CreateSourceMapResolverOptions: interface CreateSourceMapResolverOptions { fetch?: typeof globalThis.fetch; }
 Episode: type Episode = { anchor: AnchorSignal; members: EpisodeMember[]; };
@@ -20,6 +20,8 @@ InpPhase: type InpPhase = 'input-delay' | 'processing' | 'presentation';
 InteractionCollector: interface InteractionCollector extends Collector { finalize(result: RecordingResult): RecordingResult; }
 InteractionSignal: type InteractionSignal = { kind: 'interaction'; at: number; eventType: string; target?: string; duration: number; inputDelay: number; processing: number; presentation: number; attribution?: LongTaskAttribution[]; };
 LayoutShiftSignal: type LayoutShiftSignal = { kind: 'layout-shift'; at: number; value: number; sources: DOMRect[]; previousSources?: (DOMRect | null)[]; };
+LeakSample: type LeakSample = { at: number; retained: number; };
+LeakSuspect: type LeakSuspect = { component: string; unmounted: number; retained: number; retainedSlopePerMin: number; };
 LinkConfidence: type LinkConfidence = 'caused' | 'co-occurred';
 LongTaskAttribution: type LongTaskAttribution = { frame: StackFrame; selfRatio: number; sampleCount: number; };
 LongTaskScript: type LongTaskScript = { invokerType: string; invoker: string; sourceURL: string; sourceFunctionName: string; charPosition: number; duration: number; };
@@ -30,7 +32,7 @@ ProfilerSample: interface ProfilerSample { timestamp: number; stackId?: number; 
 ProfilerStack: interface ProfilerStack { frameId: number; parentId?: number; }
 ProfilerTrace: interface ProfilerTrace { resources: string[]; frames: ProfilerFrame[]; stacks: ProfilerStack[]; samples: ProfilerSample[]; }
 Recorder: interface Recorder { start(): void; stop(): RecordingResult; isRecording(): boolean; onSignal(cb: (signal: Signal) => void): () => void; use(collector: Collector): void; }
-RecordingResult: interface RecordingResult { signals: Signal[]; startedAt: number; duration: number; heapSamples?: HeapSample[]; frames?: number[]; }
+RecordingResult: interface RecordingResult { signals: Signal[]; startedAt: number; duration: number; heapSamples?: HeapSample[]; frames?: number[]; leakSuspects?: LeakSuspect[]; }
 RenderReason: type RenderReason = 'mount' | 'state' | 'props' | 'parent';
 RenderSignal: type RenderSignal = { kind: 'render'; at: number; component: string; reason: RenderReason; duration: number; changedProps?: string[]; commitId: number; depth: number; members?: RenderSignal[]; count?: number; };
 Signal: type Signal = ForcedReflowSignal | LayoutShiftSignal | LongTaskSignal | WebVitalSignal | NetworkSignal | RenderSignal | InteractionSignal;
@@ -40,6 +42,7 @@ StackFrame: type StackFrame = { file: string; line: number; col: number; fnName?
 WebVitalSignal: type WebVitalSignal = { kind: 'web-vital'; name: 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB'; value: number; };
 analyzeFrames: function analyzeFrames(frames: number[]): FrameStats | null;
 analyzeHeapTrend: function analyzeHeapTrend(samples: HeapSample[]): HeapTrend | null;
+analyzeLeakTrend: function analyzeLeakTrend(samples: LeakSample[]): { leaking: boolean; slopePerMin: number; } | null;
 attachLazyStack: function attachLazyStack(target: object, raw: string | undefined, skipTopFrames?: number): void;
 attributeLongTaskSignals: function attributeLongTaskSignals(trace: ProfilerTrace, signals: Signal[]): Signal[];
 attributeWindow: function attributeWindow(trace: ProfilerTrace, start: number, end: number): LongTaskAttribution[];

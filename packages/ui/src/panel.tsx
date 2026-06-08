@@ -31,6 +31,7 @@ import {
 } from './severity'
 import { SummaryHeader } from './summary'
 import { Timeline } from './timeline'
+import { LeakList } from './leaks'
 import { RenderInsights } from './render-insights'
 import { InpEpisode } from './inp-episode'
 import { LongTaskEpisode } from './long-task-episode'
@@ -791,7 +792,8 @@ export function Panel(props: PanelProps) {
   const hasTimelineSignals =
     result.signals.some((s) => s.kind !== 'web-vital') ||
     (result.heapSamples?.length ?? 0) > 0 ||
-    (result.frames?.length ?? 0) > 0
+    (result.frames?.length ?? 0) > 0 ||
+    (result.leakSuspects?.length ?? 0) > 0
   const [activeTab, setActiveTab] = useState<ActiveTab>(
     kindsPresent[0] ?? 'forced-reflow',
   )
@@ -1029,6 +1031,7 @@ export function Panel(props: PanelProps) {
 
           {activeTab === 'timeline' && (
             <div style={{ flexGrow: 1, overflowY: 'auto', paddingTop: '4px', paddingBottom: '24px' }}>
+              <LeakList suspects={result.leakSuspects} />
               <Timeline
                 signals={result.signals}
                 duration={result.duration}

@@ -75,6 +75,9 @@ export interface ReactDevToolsHook {
    * A minimal no-op implementation (return 1) is sufficient for our purposes.
    */
   inject?: (internals: unknown) => number
+  /** React calls this for every fiber it unmounts (dev builds) — the leak
+   * collector's unmount signal. */
+  onCommitFiberUnmount?: (rendererId: number, fiber: MinimalFiber) => void
   // React DevTools sets many more fields; we only need the above.
   [key: string]: unknown
 }

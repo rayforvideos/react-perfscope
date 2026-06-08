@@ -11,7 +11,7 @@ import {
   createFrameCollector,
 } from '@react-perfscope/core'
 import type { Recorder, RecordingResult } from '@react-perfscope/core'
-import { createRenderCollector } from '@react-perfscope/react'
+import { createRenderCollector, createLeakCollector } from '@react-perfscope/react'
 
 export interface ConfiguredRecorder {
   recorder: Recorder
@@ -45,14 +45,18 @@ export function createConfiguredRecorder(): ConfiguredRecorder {
   recorder.use(interaction)
   const frame = createFrameCollector()
   recorder.use(frame)
+  const leak = createLeakCollector()
+  recorder.use(leak)
 
   // Assemble interactions first so self-profiling can attribute their
-  // processing windows, then attach the heap series and frame timestamps.
+  // processing windows, then attach the heap series, frame timestamps, and
+  // leak suspects.
   const finalize = (result: RecordingResult): Promise<RecordingResult> =>
     Promise.resolve(interaction.finalize(result))
       .then((r) => selfProfiler.finalize(r))
       .then((r) => heap.finalize(r))
       .then((r) => frame.finalize(r))
+      .then((r) => leak.finalize(r))
 
   return { recorder, finalize }
 }

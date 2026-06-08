@@ -1,5 +1,6 @@
 export * from './types'
-export { installDevToolsHook, uninstallDevToolsHook } from './devtools-hook'
+export { installDevToolsHook, uninstallDevToolsHook, onFiberUnmount } from './devtools-hook'
 export { fiberComponentName, walkChangedFibers } from './fiber-walker'
 export { resolveComponentFromElement } from './attribution'
 export { createRenderCollector } from './render-collector'
+export { createLeakCollector } from './leak-collector'

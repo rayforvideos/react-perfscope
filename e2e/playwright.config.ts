@@ -12,7 +12,17 @@ export default defineConfig({
   reporter: CI ? [['github'], ['list']] : 'list',
   timeout: 30_000,
   use: { trace: 'on-first-retry' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Expose globalThis.gc so the leak collector can force a collection at
+        // finalize — makes retained counts accurate instead of GC-lag-bounded.
+        launchOptions: { args: ['--js-flags=--expose-gc'] },
+      },
+    },
+  ],
   webServer: [
     {
       command: 'vite --config fixtures/vite.config.ts --port 5188 --strictPort',

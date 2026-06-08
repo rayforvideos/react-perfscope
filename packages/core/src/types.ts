@@ -191,6 +191,20 @@ export type FrameStats = {
   droppedFrames: number
 }
 
+/** A component whose instances were unmounted but stayed retained (not
+ * garbage-collected) with a count that climbed across the recording — i.e. a
+ * suspected leak. Identifies WHICH component leaks and HOW MANY instances; the
+ * retainer chain (who holds them) is not observable from in-page JS. */
+export type LeakSuspect = {
+  component: string
+  /** Total instances of this component unmounted during the recording. */
+  unmounted: number
+  /** Unmounted instances still alive at the end (unmounted − collected). */
+  retained: number
+  /** Growth rate of the retained-instance floor, in instances per minute. */
+  retainedSlopePerMin: number
+}
+
 export interface RecordingResult {
   signals: Signal[]
   startedAt: number
@@ -201,13 +215,16 @@ export interface RecordingResult {
   /** requestAnimationFrame timestamps captured during the recording, for
    * frame-rate / jank analysis. Attached at finalize. */
   frames?: number[]
+  /** Components with a sustained rise in retained-after-unmount instances —
+   * suspected leaks. Attached at finalize; absent when none or unsupported. */
+  leakSuspects?: LeakSuspect[]
 }
 
 /** Collectors are usually keyed by the SignalKind they emit. A few (heap,
  * self-profiling) drive a side-channel instead of emitting signals; `'heap'`
  * widens the kind for the heap sampler, which attaches a time series via
  * finalize rather than pushing signals. */
-export type CollectorKind = SignalKind | 'heap' | 'frame'
+export type CollectorKind = SignalKind | 'heap' | 'frame' | 'leak'
 
 export interface Collector {
   readonly kind: CollectorKind

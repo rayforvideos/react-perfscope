@@ -95,7 +95,7 @@ And none of this ships to production: the auto bootstrap and build plugins disab
 
 ```sh
 pnpm install
-pnpm test          # vitest, 275 tests
+pnpm test          # vitest, 283 tests
 pnpm typecheck     # tsc --noEmit per package
 pnpm build         # tsup per package (filtered to packages/*)
 pnpm api:check     # fail if the public API surface drifted from its snapshot
@@ -219,7 +219,7 @@ react-perfscope는 인-밴드로 계측합니다 — 사용자 코드와 같은 
 
 ```sh
 pnpm install
-pnpm test          # vitest, 275 tests
+pnpm test          # vitest, 283 tests
 pnpm typecheck     # 패키지별 tsc --noEmit
 pnpm build         # 패키지별 tsup (packages/*만 필터링)
 pnpm api:check     # 공개 API 표면이 스냅샷에서 벗어나면 실패

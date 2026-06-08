@@ -3,7 +3,7 @@ App: function App(props: AppProps): h.JSX.Element;
 BUFFER_CAP: BUFFER_CAP = 10000
 Capabilities: type Capabilities = Record<SignalKind, boolean>;
 Collector: interface Collector { readonly kind: CollectorKind; activate(emit: (signal: Signal) => void): void; deactivate(): void; }
-CollectorKind: type CollectorKind = SignalKind | 'heap' | 'frame';
+CollectorKind: type CollectorKind = SignalKind | 'heap' | 'frame' | 'leak';
 CommitCause: type CommitCause = { commitId: number; component: string; };
 ConfiguredRecorder: interface ConfiguredRecorder { recorder: Recorder; finalize: (result: RecordingResult) => Promise<RecordingResult>; }
 CreateSourceMapResolverOptions: interface CreateSourceMapResolverOptions { fetch?: typeof globalThis.fetch; }
@@ -22,6 +22,8 @@ InpPhase: type InpPhase = 'input-delay' | 'processing' | 'presentation';
 InteractionCollector: interface InteractionCollector extends Collector { finalize(result: RecordingResult): RecordingResult; }
 InteractionSignal: type InteractionSignal = { kind: 'interaction'; at: number; eventType: string; target?: string; duration: number; inputDelay: number; processing: number; presentation: number; attribution?: LongTaskAttribution[]; };
 LayoutShiftSignal: type LayoutShiftSignal = { kind: 'layout-shift'; at: number; value: number; sources: DOMRect[]; previousSources?: (DOMRect | null)[]; };
+LeakSample: type LeakSample = { at: number; retained: number; };
+LeakSuspect: type LeakSuspect = { component: string; unmounted: number; retained: number; retainedSlopePerMin: number; };
 LinkConfidence: type LinkConfidence = 'caused' | 'co-occurred';
 LongTaskAttribution: type LongTaskAttribution = { frame: StackFrame; selfRatio: number; sampleCount: number; };
 LongTaskScript: type LongTaskScript = { invokerType: string; invoker: string; sourceURL: string; sourceFunctionName: string; charPosition: number; duration: number; };
@@ -35,9 +37,9 @@ ProfilerSample: interface ProfilerSample { timestamp: number; stackId?: number; 
 ProfilerStack: interface ProfilerStack { frameId: number; parentId?: number; }
 ProfilerTrace: interface ProfilerTrace { resources: string[]; frames: ProfilerFrame[]; stacks: ProfilerStack[]; samples: ProfilerSample[]; }
 ReactAdapter: interface ReactAdapter { install(): void; resolveComponentFromElement(el: HTMLElement): string | null; }
-ReactDevToolsHook: interface ReactDevToolsHook { onCommitFiberRoot?: (rendererId: number, root: { current: MinimalFiber; }, priorityLevel?: unknown) => void; supportsFiber?: boolean; inject?: (internals: unknown) => number; [key: string]: unknown; }
+ReactDevToolsHook: interface ReactDevToolsHook { onCommitFiberRoot?: (rendererId: number, root: { current: MinimalFiber; }, priorityLevel?: unknown) => void; supportsFiber?: boolean; inject?: (internals: unknown) => number; onCommitFiberUnmount?: (rendererId: number, fiber: MinimalFiber) => void; [key: string]: unknown; }
 Recorder: interface Recorder { start(): void; stop(): RecordingResult; isRecording(): boolean; onSignal(cb: (signal: Signal) => void): () => void; use(collector: Collector): void; }
-RecordingResult: interface RecordingResult { signals: Signal[]; startedAt: number; duration: number; heapSamples?: HeapSample[]; frames?: number[]; }
+RecordingResult: interface RecordingResult { signals: Signal[]; startedAt: number; duration: number; heapSamples?: HeapSample[]; frames?: number[]; leakSuspects?: LeakSuspect[]; }
 RenderReason: type RenderReason = 'mount' | 'state' | 'props' | 'parent';
 RenderSignal: type RenderSignal = { kind: 'render'; at: number; component: string; reason: RenderReason; duration: number; changedProps?: string[]; commitId: number; depth: number; members?: RenderSignal[]; count?: number; };
 Signal: type Signal = ForcedReflowSignal | LayoutShiftSignal | LongTaskSignal | WebVitalSignal | NetworkSignal | RenderSignal | InteractionSignal;
@@ -50,6 +52,7 @@ Widget: function Widget(props: WidgetProps): h.JSX.Element;
 WidgetPosition: type WidgetPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 analyzeFrames: function analyzeFrames(frames: number[]): FrameStats | null;
 analyzeHeapTrend: function analyzeHeapTrend(samples: HeapSample[]): HeapTrend | null;
+analyzeLeakTrend: function analyzeLeakTrend(samples: LeakSample[]): { leaking: boolean; slopePerMin: number; } | null;
 attachLazyStack: function attachLazyStack(target: object, raw: string | undefined, skipTopFrames?: number): void;
 attributeLongTaskSignals: function attributeLongTaskSignals(trace: ProfilerTrace, signals: Signal[]): Signal[];
 attributeWindow: function attributeWindow(trace: ProfilerTrace, start: number, end: number): LongTaskAttribution[];
@@ -60,6 +63,7 @@ createFrameCollector: function createFrameCollector(): FrameCollector;
 createHeapCollector: function createHeapCollector(): HeapCollector;
 createInteractionCollector: function createInteractionCollector(): InteractionCollector;
 createLayoutShiftCollector: function createLayoutShiftCollector(): Collector;
+createLeakCollector: function createLeakCollector(): LeakCollector;
 createLongTasksCollector: function createLongTasksCollector(): Collector;
 createNetworkCollector: function createNetworkCollector(): Collector;
 createRecorder: function createRecorder(): Recorder;
@@ -77,6 +81,7 @@ isUserResource: function isUserResource(url: string | undefined): boolean;
 markSelfRequest: function markSelfRequest(url: string): void;
 mount: function mount(opts: MountOptions): UnmountFn;
 mountShadow: function mountShadow(vnode: ComponentChild, opts?: MountShadowOptions): () => void;
+onFiberUnmount: function onFiberUnmount(listener: UnmountListener): () => void;
 parseStack: function parseStack(raw: string | undefined): StackFrame[];
 resolveComponentFromElement: function resolveComponentFromElement(el: HTMLElement): string | null;
 resolveFrame: function resolveFrame(frame: StackFrame, fetchMap: FetchMap): Promise<StackFrame>;

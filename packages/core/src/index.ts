@@ -15,6 +15,10 @@ export { markSelfRequest, isSelfRequest } from './self-requests'
 export { detectCapabilities, unsupportedKinds } from './capabilities'
 export type { Capabilities } from './capabilities'
 
+// Component leak-trend analysis (rising retained-after-unmount instances)
+export { analyzeLeakTrend } from './leak-trend'
+export type { LeakSample } from './leak-trend'
+
 // Cross-signal correlation (groups signals into interaction/long-task episodes)
 export { correlate } from './correlate'
 export type { Episode, EpisodeMember, AnchorSignal, LinkConfidence, InpPhase, CommitCause } from './correlate'
