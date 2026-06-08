@@ -27,3 +27,85 @@ jobs:
       - run: pnpm typecheck
 
       - run: pnpm test
+
+      # Fail if the public API surface drifted from its reviewed snapshots
+      # (catches accidental breaking changes / surface creep). Runs after build
+      # because it reads the emitted dist/*.d.ts.
+      - run: pnpm api:check
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @react-perfscope-e2e/harness exec playwright install --with-deps chromium
+
+      # The harness `pretest` builds the packages first (fixtures and the
+      # example app resolve them through their built dist before a browser
+      # drives them).
+      - name: Run browser verification harness
+        run: pnpm --filter @react-perfscope-e2e/harness test
+
+  # Verify the peer-dependency ranges the packages advertise actually work, by
+  # installing each major and running the affected package's tests. The
+  # committed lockfile is not touched (--no-frozen-lockfile + an ephemeral add).
+  compat:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: react@18
+            pkg: "@react-perfscope/react"
+            add: "react@^18.3.0 react-dom@^18.3.0 @types/react@^18.3.0 @types/react-dom@^18.3.0"
+            test: packages/react
+          - name: react@19
+            pkg: "@react-perfscope/react"
+            add: "react@^19.0.0 react-dom@^19.0.0 @types/react@^19.0.0 @types/react-dom@^19.0.0"
+            test: packages/react
+          - name: vite@5
+            pkg: "@react-perfscope/vite"
+            add: "vite@^5.0.0"
+            test: packages/vite-plugin
+          - name: vite@6
+            pkg: "@react-perfscope/vite"
+            add: "vite@^6.0.0"
+            test: packages/vite-plugin
+          - name: vite@7
+            pkg: "@react-perfscope/vite"
+            add: "vite@^7.0.0"
+            test: packages/vite-plugin
+          - name: vite@8
+            pkg: "@react-perfscope/vite"
+            add: "vite@^8.0.0"
+            test: packages/vite-plugin
+    name: compat (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --no-frozen-lockfile
+
+      - name: Pin ${{ matrix.name }}
+        run: pnpm --filter ${{ matrix.pkg }} add -D ${{ matrix.add }}
+
+      - name: Test against ${{ matrix.name }}
+        run: pnpm exec vitest run ${{ matrix.test }}

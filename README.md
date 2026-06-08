@@ -95,9 +95,22 @@ And none of this ships to production: the auto bootstrap and build plugins disab
 
 ```sh
 pnpm install
-pnpm test          # vitest, 271 tests
+pnpm test          # vitest, 275 tests
 pnpm typecheck     # tsc --noEmit per package
 pnpm build         # tsup per package (filtered to packages/*)
+pnpm api:check     # fail if the public API surface drifted from its snapshot
+pnpm api:update    # accept a deliberate API change into the snapshot
+```
+
+Real-browser verification harness (Playwright + headless Chromium) — checks
+recorded signals against the native Performance APIs to verify accuracy,
+host-app safety, and idle silence:
+
+```sh
+pnpm build
+pnpm --filter @react-perfscope-e2e/harness exec playwright install chromium
+pnpm --filter @react-perfscope-e2e/harness test
+pnpm --filter @react-perfscope-e2e/harness report:overhead   # reproduce overhead numbers
 ```
 
 ## Contributing
@@ -206,9 +219,21 @@ react-perfscope는 인-밴드로 계측합니다 — 사용자 코드와 같은 
 
 ```sh
 pnpm install
-pnpm test          # vitest, 271 tests
+pnpm test          # vitest, 275 tests
 pnpm typecheck     # 패키지별 tsc --noEmit
 pnpm build         # 패키지별 tsup (packages/*만 필터링)
+pnpm api:check     # 공개 API 표면이 스냅샷에서 벗어나면 실패
+pnpm api:update    # 의도된 API 변경을 스냅샷에 반영
+```
+
+실제 브라우저 검증 하니스 (Playwright + 헤드리스 Chromium) — 기록된 시그널을
+네이티브 Performance API와 대조해 정확성·호스트앱 안전성·idle 무신호를 검증합니다:
+
+```sh
+pnpm build
+pnpm --filter @react-perfscope-e2e/harness exec playwright install chromium
+pnpm --filter @react-perfscope-e2e/harness test
+pnpm --filter @react-perfscope-e2e/harness report:overhead   # 오버헤드 수치 재생산
 ```
 
 ## 기여

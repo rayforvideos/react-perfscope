@@ -1,0 +1,22 @@
+{
+  "name": "@react-perfscope-e2e/harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pretest": "pnpm -w run build",
+    "test": "playwright test",
+    "report:overhead": "PERFSCOPE_REPORT=1 playwright test overhead.spec.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@react-perfscope/core": "workspace:*",
+    "@react-perfscope/react": "workspace:*",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-perfscope": "workspace:*",
+    "vite": "^5.4.0"
+  }
+}

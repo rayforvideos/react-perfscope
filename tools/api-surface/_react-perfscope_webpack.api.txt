@@ -1,0 +1,3 @@
+ReactPerfscopePlugin: class ReactPerfscopePlugin { constructor(_opts?: ReactPerfscopePluginOptions); apply(compiler: Compiler): void; }
+ReactPerfscopePluginOptions: interface ReactPerfscopePluginOptions { }
+default: class ReactPerfscopePlugin { constructor(_opts?: ReactPerfscopePluginOptions); apply(compiler: Compiler): void; }

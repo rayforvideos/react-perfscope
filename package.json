@@ -7,7 +7,9 @@
     "build": "pnpm -r --filter=./packages/* build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "pnpm -r --filter=./packages/* typecheck"
+    "typecheck": "pnpm -r --filter=./packages/* typecheck",
+    "api:check": "node tools/api-surface/surface.mjs --check",
+    "api:update": "node tools/api-surface/surface.mjs --write"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

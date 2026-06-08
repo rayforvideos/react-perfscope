@@ -1,0 +1,2 @@
+ReactPerfscopePluginOptions: interface ReactPerfscopePluginOptions { }
+default: function reactPerfscope(_opts?: ReactPerfscopePluginOptions): Plugin;

@@ -1,6 +1,8 @@
 import type { Collector, Recorder, RecordingResult, Signal } from './types'
 
-const BUFFER_CAP = 10_000
+/** Hard cap on retained signals; the oldest are dropped past this. Exported so
+ * downstream tests can assert the buffer never grows beyond it. */
+export const BUFFER_CAP = 10_000
 
 export interface InternalRecorder extends Recorder {
   __push: (signal: Signal) => void

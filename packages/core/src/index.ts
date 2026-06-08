@@ -2,7 +2,7 @@
 export * from './types'
 
 // Recorder
-export { createRecorder } from './recorder'
+export { createRecorder, BUFFER_CAP } from './recorder'
 
 // Sourcemap utilities
 export { parseStack, resolveFrame, attachLazyStack, createSourceMapResolver } from './sourcemap'

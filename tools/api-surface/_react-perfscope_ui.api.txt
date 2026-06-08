@@ -1,0 +1,11 @@
+App: function App(props: AppProps): h.JSX.Element;
+MountOptions: interface MountOptions { recorder: Recorder; position?: WidgetPosition; host?: HTMLElement; resolveFrame?: (frame: StackFrame) => Promise<StackFrame>; finalize?: (result: RecordingResult) => Promise<RecordingResult>; }
+Panel: function Panel(props: PanelProps): h.JSX.Element;
+UnmountFn: type UnmountFn = () => void;
+Widget: function Widget(props: WidgetProps): h.JSX.Element;
+WidgetPosition: type WidgetPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+hideAllOverlays: function hideAllOverlays(): void;
+hideOverlay: function hideOverlay(id: string): void;
+mount: function mount(opts: MountOptions): UnmountFn;
+mountShadow: function mountShadow(vnode: ComponentChild, opts?: MountShadowOptions): () => void;
+showOverlay: function showOverlay(id: string, rect: DOMRect, style?: OverlayStyle): void;

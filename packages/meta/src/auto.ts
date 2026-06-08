@@ -1,18 +1,7 @@
-import {
-  createRecorder,
-  createForcedReflowCollector,
-  createLongTasksCollector,
-  createLayoutShiftCollector,
-  createNetworkCollector,
-  createWebVitalsCollector,
-  createSelfProfilingCollector,
-  createHeapCollector,
-  createInteractionCollector,
-  createFrameCollector,
-  createSourceMapResolver,
-} from '@react-perfscope/core'
-import { createRenderCollector, installDevToolsHook } from '@react-perfscope/react'
+import { createSourceMapResolver } from '@react-perfscope/core'
+import { installDevToolsHook } from '@react-perfscope/react'
 import { mount } from '@react-perfscope/ui'
+import { createConfiguredRecorder } from './bootstrap'
 
 /**
  * Side-effect entry. Importing `react-perfscope/auto` bootstraps a Recorder
@@ -41,32 +30,12 @@ function bootstrap(): void {
     // commit handler to the same global hook.
     installDevToolsHook(() => {})
 
-    const recorder = createRecorder()
-    recorder.use(createForcedReflowCollector())
-    recorder.use(createLongTasksCollector())
-    recorder.use(createLayoutShiftCollector())
-    recorder.use(createNetworkCollector())
-    recorder.use(createWebVitalsCollector())
-    recorder.use(createRenderCollector())
-    const selfProfiler = createSelfProfilingCollector()
-    recorder.use(selfProfiler)
-    const heap = createHeapCollector()
-    recorder.use(heap)
-    const interaction = createInteractionCollector()
-    recorder.use(interaction)
-    const frame = createFrameCollector()
-    recorder.use(frame)
+    const { recorder, finalize } = createConfiguredRecorder()
     const resolver = createSourceMapResolver()
     mount({
       recorder,
       resolveFrame: (f) => resolver.resolve(f),
-      // Assemble interactions first so self-profiling can attribute their
-      // processing windows, then attach the heap series and frame timestamps.
-      finalize: (result) =>
-        Promise.resolve(interaction.finalize(result))
-          .then((r) => selfProfiler.finalize(r))
-          .then((r) => heap.finalize(r))
-          .then((r) => frame.finalize(r)),
+      finalize,
     })
     g.__REACT_PERFSCOPE_AUTO_MOUNTED__ = true
   } catch (err) {
