@@ -5,6 +5,22 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). All
 packages are versioned in lockstep.
 
+## [0.7.0] - 2026-06-08
+
+### Added
+
+- **Component memory-leak detection.** A new in-page collector watches
+  component unmounts (via React's `onCommitFiberUnmount`), registers each
+  unmounted fiber in a `FinalizationRegistry`, and tracks how many instances
+  stay retained over time. Components whose retained-instance floor keeps
+  climbing are surfaced in the panel's timeline tab as **Suspected leaks**,
+  naming the component and its retained/unmounted counts. It identifies *which*
+  component leaks and *how many* instances — not the retainer chain (a heap
+  snapshot, which in-page JS can't take). Robust to React StrictMode churn.
+- New public API: `createLeakCollector`, `onFiberUnmount`
+  (`@react-perfscope/react`); `analyzeLeakTrend`, `LeakSample`, `LeakSuspect`,
+  and `RecordingResult.leakSuspects` (`@react-perfscope/core`).
+
 ## [0.6.0] - 2026-06-08
 
 ### Added
@@ -86,6 +102,7 @@ packages are versioned in lockstep.
 
 - Measured measurement-overhead section in the README (bilingual EN/KO).
 
+[0.7.0]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.7.0
 [0.6.0]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.6.0
 [0.5.0]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.5.0
 [0.4.0]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.4.0
