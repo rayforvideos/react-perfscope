@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "pretest": "pnpm -w run build",
-    "test": "playwright test",
-    "report:overhead": "PERFSCOPE_REPORT=1 playwright test overhead.spec.ts"
+    "build": "pnpm -w run build",
+    "test": "pnpm run build && playwright test",
+    "report:overhead": "pnpm run build && PERFSCOPE_REPORT=1 playwright test overhead.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",

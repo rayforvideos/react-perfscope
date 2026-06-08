@@ -51,7 +51,7 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @react-perfscope-e2e/harness exec playwright install --with-deps chromium
 
-      # The harness `pretest` builds the packages first (fixtures and the
+      # The harness `test` script builds the packages first (fixtures and the
       # example app resolve them through their built dist before a browser
       # drives them).
       - name: Run browser verification harness
