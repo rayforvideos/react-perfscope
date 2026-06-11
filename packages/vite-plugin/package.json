@@ -1,6 +1,6 @@
 {
   "name": "@react-perfscope/vite",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Vite plugin that auto-mounts react-perfscope in dev.",
   "keywords": [
     "vite",

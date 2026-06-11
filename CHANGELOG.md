@@ -5,6 +5,45 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). All
 packages are versioned in lockstep.
 
+## [0.7.1] - 2026-06-11
+
+### Fixed
+
+- **Source-mapped stack frames were off by one column.** Stack traces report
+  1-based columns while source maps store 0-based ones; every resolved frame
+  was shifted one token right in minified bundles. Resolved frames now use
+  1-based columns consistently. The resolver also caches the *decoded*
+  `TraceMap` per file (not just the raw JSON), so resolving N frames from one
+  bundle no longer re-decodes the mappings N times on the main thread.
+- **`uninstallDevToolsHook()` no longer disconnects the React DevTools
+  extension.** Uninstalling now restores any pre-existing
+  `onCommitFiberRoot` / `onCommitFiberUnmount` handlers it had chained to, and
+  an uninstall → reinstall cycle no longer makes the old wrapper chain to
+  itself (which recursed on every commit).
+- **The `/auto` production guard actually works in bundled apps.** It read
+  `NODE_ENV` through an optional-chained `globalThis` cast, which bundlers do
+  not statically replace and browsers never define — so the guard silently
+  never fired. It now uses the bare `process.env.NODE_ENV` expression that
+  Vite/webpack/esbuild substitute at build time.
+- **The interaction collector no longer pins DOM nodes after a recording.**
+  Buffered Event Timing entries (each holding a `target` element) are released
+  on finalize, and the buffer is capped at 5,000 entries during very long
+  recordings.
+- **Render-reason attribution recognizes `forwardRef`/`memo` parents.** Their
+  fibers carry an object `type` and were skipped when climbing to the nearest
+  component ancestor, misclassifying parent-driven re-renders as `state`.
+- **The widget no longer re-renders 60×/s while recording.** The elapsed
+  timer is quantized to the displayed second, and the episode panels memoize
+  `correlate()` instead of recomputing it on every filter keystroke — less
+  self-perturbation in the window being measured.
+- **web-vitals subscriptions no longer stack per recorder instance.** The
+  library exposes no unsubscribe, so the collector now subscribes once per
+  page and fans metrics out to active instances (later instances previously
+  missed already-finalized metrics like LCP entirely).
+- `mount()` ignores a second call into the same host instead of stacking
+  widgets; the leak collector's sampling interval survives a double
+  `activate()` without being orphaned.
+
 ## [0.7.0] - 2026-06-08
 
 ### Added
@@ -102,6 +141,7 @@ packages are versioned in lockstep.
 
 - Measured measurement-overhead section in the README (bilingual EN/KO).
 
+[0.7.1]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.7.1
 [0.7.0]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.7.0
 [0.6.0]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.6.0
 [0.5.0]: https://github.com/rayforvideos/react-perfscope/releases/tag/v0.5.0

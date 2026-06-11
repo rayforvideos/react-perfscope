@@ -75,7 +75,7 @@ This is a pnpm monorepo. Six published packages:
 
 ## Status
 
-Published on npm (`0.7.0`). Compatible with React 18 & 19, Vite 5–8, webpack 5, and Next.js (App Router). Production-safe: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
+Published on npm (`0.7.1`). Compatible with React 18 & 19, Vite 5–8, webpack 5, and Next.js (App Router). Production-safe: the auto bootstrap bails when `NODE_ENV === 'production'`, and the build plugins are no-ops outside dev.
 
 ## Does it skew the numbers it reports?
 
@@ -95,7 +95,7 @@ And none of this ships to production: the auto bootstrap and build plugins disab
 
 ```sh
 pnpm install
-pnpm test          # vitest, 283 tests
+pnpm test          # vitest, 302 tests
 pnpm typecheck     # tsc --noEmit per package
 pnpm build         # tsup per package (filtered to packages/*)
 pnpm api:check     # fail if the public API surface drifted from its snapshot
@@ -199,7 +199,7 @@ pnpm 모노레포입니다. 6개 published 패키지:
 
 ## 상태
 
-npm 게시됨 (`0.7.0`). React 18·19, Vite 5–8, webpack 5, Next.js(App Router) 호환. 프로덕션 안전성: `NODE_ENV === 'production'`이면 auto 부트스트랩이 자동으로 빠지고, 빌드 플러그인도 dev 모드 외에는 no-op입니다.
+npm 게시됨 (`0.7.1`). React 18·19, Vite 5–8, webpack 5, Next.js(App Router) 호환. 프로덕션 안전성: `NODE_ENV === 'production'`이면 auto 부트스트랩이 자동으로 빠지고, 빌드 플러그인도 dev 모드 외에는 no-op입니다.
 
 ## 측정 자체를 왜곡하지 않나요?
 
@@ -219,7 +219,7 @@ react-perfscope는 인-밴드로 계측합니다 — 사용자 코드와 같은 
 
 ```sh
 pnpm install
-pnpm test          # vitest, 283 tests
+pnpm test          # vitest, 302 tests
 pnpm typecheck     # 패키지별 tsc --noEmit
 pnpm build         # 패키지별 tsup (packages/*만 필터링)
 pnpm api:check     # 공개 API 표면이 스냅샷에서 벗어나면 실패
