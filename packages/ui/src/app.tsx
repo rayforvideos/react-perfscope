@@ -30,7 +30,11 @@ export function App(props: AppProps) {
       return
     }
     const tick = () => {
-      setElapsedMs(performance.now() - startedAtRef.current)
+      // Quantize to the displayed second: setState with an unchanged value
+      // lets preact bail out, so the widget re-renders once per second
+      // instead of every frame — this runs inside the window being measured.
+      const elapsed = performance.now() - startedAtRef.current
+      setElapsedMs(Math.floor(elapsed / 1000) * 1000)
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)

@@ -41,7 +41,10 @@ export function subtreeMightHaveRendered(fiber: MinimalFiber): boolean {
 export function nearestComponentAncestor(fiber: MinimalFiber): MinimalFiber | null {
   let p = fiber.return
   while (p) {
-    if (typeof p.type === 'function') return p
+    // Function/class components have function types; forwardRef and
+    // non-simple memo wrappers have object types — all are components
+    // (host fibers are strings). Mirrors the check in attribution.ts.
+    if (typeof p.type === 'function' || (p.type && typeof p.type === 'object')) return p
     p = p.return
   }
   return null

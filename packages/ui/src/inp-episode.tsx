@@ -1,4 +1,5 @@
 import { h } from 'preact'
+import { useMemo } from 'preact/hooks'
 import { correlate } from '@react-perfscope/core'
 import type { Signal, Episode, InpPhase } from '@react-perfscope/core'
 import { useI18n } from './i18n'
@@ -31,7 +32,9 @@ function phaseMs(episode: Episode, phase: InpPhase): number {
 
 export function InpEpisode({ signals }: { signals: Signal[] }) {
   const { t } = useI18n()
-  const episode = worstInteractionEpisode(signals)
+  // correlate() walks the whole recording per anchor — memoize so the panel's
+  // frequent re-renders (filter keystrokes, toggles) don't recompute it.
+  const episode = useMemo(() => worstInteractionEpisode(signals), [signals])
   if (!episode || episode.anchor.kind !== 'interaction') return null
   const a = episode.anchor
   const target = a.target ? ` on ${a.target}` : ''

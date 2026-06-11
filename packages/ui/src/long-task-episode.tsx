@@ -1,4 +1,5 @@
 import { h } from 'preact'
+import { useMemo } from 'preact/hooks'
 import { correlate } from '@react-perfscope/core'
 import type { Signal, Episode } from '@react-perfscope/core'
 import { useI18n } from './i18n'
@@ -17,7 +18,9 @@ function worstLongTaskEpisode(signals: Signal[]): Episode | null {
 
 export function LongTaskEpisode({ signals }: { signals: Signal[] }) {
   const { t } = useI18n()
-  const episode = worstLongTaskEpisode(signals)
+  // correlate() walks the whole recording per anchor — memoize so the panel's
+  // frequent re-renders (filter keystrokes, toggles) don't recompute it.
+  const episode = useMemo(() => worstLongTaskEpisode(signals), [signals])
   if (!episode || episode.anchor.kind !== 'long-task') return null
   // With no members there's nothing to correlate — the raw signal list below
   // already shows the task on its own, so skip the (empty) episode card.

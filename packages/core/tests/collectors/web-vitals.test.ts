@@ -1,35 +1,31 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 
 type WebVitalCb = (metric: { name: string; value: number }) => void
 
 const subscribers: Record<string, WebVitalCb | undefined> = {}
+const subscribeCalls: Record<string, number> = {}
+
+function register(name: string) {
+  return (cb: WebVitalCb) => {
+    subscribers[name] = cb
+    subscribeCalls[name] = (subscribeCalls[name] ?? 0) + 1
+  }
+}
 
 vi.mock('web-vitals', () => ({
-  onLCP: (cb: WebVitalCb) => {
-    subscribers.LCP = cb
-  },
-  onINP: (cb: WebVitalCb) => {
-    subscribers.INP = cb
-  },
-  onCLS: (cb: WebVitalCb) => {
-    subscribers.CLS = cb
-  },
-  onFCP: (cb: WebVitalCb) => {
-    subscribers.FCP = cb
-  },
-  onTTFB: (cb: WebVitalCb) => {
-    subscribers.TTFB = cb
-  },
+  onLCP: register('LCP'),
+  onINP: register('INP'),
+  onCLS: register('CLS'),
+  onFCP: register('FCP'),
+  onTTFB: register('TTFB'),
 }))
 
 import { createWebVitalsCollector } from '../../src/collectors/web-vitals'
 import type { Signal, WebVitalSignal } from '../../src/types'
 
-beforeEach(() => {
-  for (const key of Object.keys(subscribers)) {
-    subscribers[key] = undefined
-  }
-})
+// NOTE: the web-vitals library has no unsubscribe, so the collector module
+// subscribes at most once per page — `subscribers` entries persist across
+// tests by design and must not be cleared between them.
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -81,6 +77,28 @@ describe('web-vitals collector', () => {
     collector.activate(() => {})
     const lcpAfter = subscribers.LCP
     expect(lcpAfter).toBe(lcpBefore) // same handler reference (no new subscription)
+  })
+
+  it('does not stack permanent subscriptions across collector instances', () => {
+    // web-vitals handlers can never be unsubscribed — a fresh collector per
+    // recording session must NOT register another permanent set.
+    const first = createWebVitalsCollector()
+    const firstGot: Signal[] = []
+    first.activate((s) => firstGot.push(s))
+    const callsAfterFirst = { ...subscribeCalls }
+
+    const second = createWebVitalsCollector()
+    const secondGot: Signal[] = []
+    second.activate((s) => secondGot.push(s))
+    expect(subscribeCalls).toEqual(callsAfterFirst)
+
+    // Both active instances still receive metrics through the shared subscription.
+    subscribers.LCP!({ name: 'LCP', value: 2000 })
+    expect(firstGot).toHaveLength(1)
+    expect(secondGot).toHaveLength(1)
+
+    first.deactivate()
+    second.deactivate()
   })
 
   it('routes signals to the most recent emit after re-activate', () => {

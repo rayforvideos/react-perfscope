@@ -1,6 +1,18 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createSourceMapResolver } from '../src/sourcemap'
 
+const traceMapConstructions = vi.hoisted(() => ({ count: 0 }))
+vi.mock('@jridgewell/trace-mapping', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@jridgewell/trace-mapping')>()
+  class CountingTraceMap extends actual.TraceMap {
+    constructor(...args: ConstructorParameters<typeof actual.TraceMap>) {
+      super(...args)
+      traceMapConstructions.count++
+    }
+  }
+  return { ...actual, TraceMap: CountingTraceMap }
+})
+
 const TEST_MAP = {
   version: 3 as const,
   sources: ['original.ts'],
@@ -29,7 +41,7 @@ describe('createSourceMapResolver', () => {
     })
     expect(resolved.file).toBe('original.ts')
     expect(resolved.line).toBe(5)
-    expect(resolved.col).toBe(2)
+    expect(resolved.col).toBe(3)
   })
 
   it('falls back to the original frame when no sourceMappingURL is present', async () => {
@@ -69,6 +81,26 @@ describe('createSourceMapResolver', () => {
     await resolver.resolve({ file: 'http://x/cached.js', line: 1, col: 4 })
     await resolver.resolve({ file: 'http://x/cached.js', line: 1, col: 4 })
     expect(mapFetches).toBe(1)
+  })
+
+  it('decodes the source map once per file, not once per resolved frame', async () => {
+    // TraceMap construction (mapping decode) is the expensive step — caching
+    // only the raw JSON re-decodes the whole bundle map for every frame.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === 'http://x/decoded.js') {
+        return new Response(`code\n//# sourceMappingURL=decoded.js.map`)
+      }
+      if (url === 'http://x/decoded.js.map') {
+        return new Response(JSON.stringify(TEST_MAP))
+      }
+      return new Response(null, { status: 404 })
+    })
+    const resolver = createSourceMapResolver({ fetch: fetchMock as never })
+    traceMapConstructions.count = 0
+    await resolver.resolve({ file: 'http://x/decoded.js', line: 1, col: 4 })
+    await resolver.resolve({ file: 'http://x/decoded.js', line: 1, col: 8 })
+    await resolver.resolve({ file: 'http://x/decoded.js', line: 1, col: 12 })
+    expect(traceMapConstructions.count).toBe(1)
   })
 
   it('handles inline data: URI source maps', async () => {

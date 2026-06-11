@@ -9,11 +9,20 @@ interface GlobalWithHook {
   [HOOK_KEY]?: ReactDevToolsHook
 }
 
+type UnmountHandler = (rendererId: number, fiber: MinimalFiber) => void
+
 const listeners = new Set<CommitListener>()
 const unmountListeners = new Set<UnmountListener>()
 let ourHook: ReactDevToolsHook | null = null
-let chainedOriginal: ReactDevToolsHook['onCommitFiberRoot'] | null = null
-let chainedUnmount: ((rendererId: number, fiber: MinimalFiber) => void) | null = null
+// Our installed wrappers and the handlers they chain to. The chained handlers
+// are ALSO captured per-wrapper in closures below — wrappers must never read
+// this mutable module state, or an uninstall→reinstall cycle makes the old
+// wrapper chain to itself (infinite recursion on every commit). These module
+// copies exist only so uninstall can restore the originals onto the hook.
+let ourCommitWrapper: ReactDevToolsHook['onCommitFiberRoot'] | null = null
+let ourUnmountWrapper: UnmountHandler | null = null
+let restoreCommit: ReactDevToolsHook['onCommitFiberRoot'] | null = null
+let restoreUnmount: UnmountHandler | null = null
 
 function ensureHookInstalled(): void {
   const g = globalThis as GlobalWithHook
@@ -21,7 +30,7 @@ function ensureHookInstalled(): void {
   if (ourHook && g[HOOK_KEY] === ourHook) return
 
   const existing = g[HOOK_KEY]
-  chainedOriginal =
+  const chainedOriginal =
     existing && existing !== ourHook && typeof existing.onCommitFiberRoot === 'function'
       ? existing.onCommitFiberRoot
       : null
@@ -29,10 +38,8 @@ function ensureHookInstalled(): void {
     existing && existing !== ourHook
       ? (existing as { onCommitFiberUnmount?: unknown }).onCommitFiberUnmount
       : null
-  chainedUnmount =
-    typeof existingUnmount === 'function'
-      ? (existingUnmount as (rendererId: number, fiber: MinimalFiber) => void)
-      : null
+  const chainedUnmount =
+    typeof existingUnmount === 'function' ? (existingUnmount as UnmountHandler) : null
 
   const hook: ReactDevToolsHook = existing && existing !== ourHook ? existing : {}
   // React's injectInternals() checks for supportsFiber and calls inject() to
@@ -90,7 +97,7 @@ function ensureHookInstalled(): void {
   // React calls this for every fiber it unmounts (dev builds). We fan out to
   // unmount listeners (the leak collector) and chain any pre-existing handler
   // (e.g. the React DevTools extension), mirroring onCommitFiberRoot.
-  ;(hook as { onCommitFiberUnmount?: (rendererId: number, fiber: MinimalFiber) => void }).onCommitFiberUnmount =
+  ;(hook as { onCommitFiberUnmount?: UnmountHandler }).onCommitFiberUnmount =
     (rendererId, fiber) => {
       if (chainedUnmount) {
         try {
@@ -109,6 +116,10 @@ function ensureHookInstalled(): void {
     }
   g[HOOK_KEY] = hook
   ourHook = hook
+  ourCommitWrapper = hook.onCommitFiberRoot
+  ourUnmountWrapper = (hook as { onCommitFiberUnmount?: UnmountHandler }).onCommitFiberUnmount ?? null
+  restoreCommit = chainedOriginal
+  restoreUnmount = chainedUnmount
 }
 
 export function installDevToolsHook(listener: CommitListener): () => void {
@@ -133,15 +144,31 @@ export function onFiberUnmount(listener: UnmountListener): () => void {
 }
 
 /**
- * Clears all listeners and forgets our installed hook reference. Used by
- * tests to fully reset module state. Does NOT remove the hook from
- * globalThis — callers that want a fully clean slate must also
- * `delete globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__`.
+ * Clears all listeners, detaches our wrappers from the global hook, and
+ * restores any pre-existing handlers we chained to (e.g. the React DevTools
+ * extension). Does NOT remove the hook object from globalThis — react-dom
+ * captured it at module load, so it must stay. Callers that want a fully
+ * clean slate must also `delete globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__`.
  */
 export function uninstallDevToolsHook(): void {
   listeners.clear()
   unmountListeners.clear()
+  if (ourHook) {
+    // Only restore if our wrapper is still the installed handler — someone
+    // (e.g. a late-loading DevTools extension) may have replaced it since.
+    if (ourHook.onCommitFiberRoot === ourCommitWrapper) {
+      if (restoreCommit) ourHook.onCommitFiberRoot = restoreCommit
+      else delete ourHook.onCommitFiberRoot
+    }
+    const h = ourHook as { onCommitFiberUnmount?: UnmountHandler }
+    if (h.onCommitFiberUnmount === ourUnmountWrapper) {
+      if (restoreUnmount) h.onCommitFiberUnmount = restoreUnmount
+      else delete h.onCommitFiberUnmount
+    }
+  }
   ourHook = null
-  chainedOriginal = null
-  chainedUnmount = null
+  ourCommitWrapper = null
+  ourUnmountWrapper = null
+  restoreCommit = null
+  restoreUnmount = null
 }

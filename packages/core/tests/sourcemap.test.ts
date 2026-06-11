@@ -47,12 +47,24 @@ handle@http://localhost:3000/src/main.ts:7:5`
   })
 })
 
-// Minimal hand-crafted source map: bundled.js (col 4) → src.ts (line 5, col 2)
+// Minimal hand-crafted source map: bundled.js generated col 0 (0-based) →
+// src.ts line 5, col 2 (0-based). Stack-trace frames are 1-based, so a frame
+// pointing at that token reads col 3 after resolution.
 const TEST_MAP: RawSourceMap = {
   version: 3,
   sources: ['src.ts'],
   names: ['doWork'],
   mappings: 'AAIEA',
+  file: 'bundled.js',
+}
+
+// Two segments on one generated line: genCol 0 → (line 1, col 0, 'first') and
+// genCol 4 → (line 2, col 8, 'second'), all 0-based in the map.
+const BOUNDARY_MAP: RawSourceMap = {
+  version: 3,
+  sources: ['src.ts'],
+  names: ['first', 'second'],
+  mappings: 'AAAAA,IACQC',
   file: 'bundled.js',
 }
 
@@ -64,7 +76,32 @@ describe('resolveFrame', () => {
     )
     expect(resolved.file).toBe('src.ts')
     expect(resolved.line).toBe(5)
-    expect(resolved.col).toBe(2)
+    expect(resolved.col).toBe(3)
+  })
+
+  it('treats stack-trace columns as 1-based when looking up 0-based map segments', async () => {
+    // Stack col 4 (1-based) is generated col 3 (0-based) — still inside the
+    // FIRST segment. An off-by-one lookup (passing 4 straight through) lands
+    // on the second segment at genCol 4 and misattributes the frame.
+    const resolved = await resolveFrame(
+      { file: 'http://x/bundled.js', line: 1, col: 4 },
+      async () => BOUNDARY_MAP
+    )
+    expect(resolved.fnName).toBe('first')
+    expect(resolved.line).toBe(1)
+    expect(resolved.col).toBe(1)
+  })
+
+  it('returns 1-based columns for resolved frames', async () => {
+    // Stack col 5 (1-based) = generated col 4 (0-based) → second segment,
+    // original col 8 (0-based) → 9 (1-based).
+    const resolved = await resolveFrame(
+      { file: 'http://x/bundled.js', line: 1, col: 5 },
+      async () => BOUNDARY_MAP
+    )
+    expect(resolved.fnName).toBe('second')
+    expect(resolved.line).toBe(2)
+    expect(resolved.col).toBe(9)
   })
 
   it('returns the input unchanged when fetchMap returns null', async () => {

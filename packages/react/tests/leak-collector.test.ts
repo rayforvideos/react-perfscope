@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createLeakCollector } from '../src/leak-collector'
 import { uninstallDevToolsHook } from '../src/devtools-hook'
 import type { RecordingResult } from '@react-perfscope/core'
@@ -22,6 +22,19 @@ describe('leak collector', () => {
     const out = await c.finalize(base)
     expect(out.leakSuspects).toBeUndefined()
     expect(out).toBe(base)
+  })
+
+  it('a second activate() does not orphan the sampling interval', () => {
+    vi.useFakeTimers()
+    try {
+      const c = createLeakCollector()
+      c.activate(() => {})
+      c.activate(() => {})
+      c.deactivate()
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('ignores host (DOM tag) fiber unmounts — only components count', async () => {

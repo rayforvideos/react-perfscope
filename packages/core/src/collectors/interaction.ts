@@ -4,6 +4,10 @@ import type { Collector, InteractionSignal, RecordingResult } from '../types'
  * trivial interactions out while still catching anything a user would feel. */
 const DURATION_THRESHOLD = 40
 
+/** Each buffered entry retains its `target` DOM node, so the buffer must stay
+ * bounded even during very long recordings. */
+const MAX_ENTRIES = 5000
+
 interface EventTimingEntry extends PerformanceEntry {
   processingStart: number
   processingEnd: number
@@ -60,7 +64,10 @@ export function createInteractionCollector(): InteractionCollector {
       try {
         observer = new PerformanceObserver((list) => {
           if (!active) return
-          for (const e of list.getEntries()) entries.push(e as EventTimingEntry)
+          for (const e of list.getEntries()) {
+            if (entries.length >= MAX_ENTRIES) break
+            entries.push(e as EventTimingEntry)
+          }
         })
         // `event` covers all interaction events; `first-input` guarantees the
         // first one even if it's under the duration threshold.
@@ -88,8 +95,13 @@ export function createInteractionCollector(): InteractionCollector {
       }
     },
     finalize(result) {
+      // Consume the buffer: entries reference `target` DOM nodes, and the
+      // recorder finalizes after stop — holding them past this point would
+      // pin interacted (possibly detached) elements until the next recording.
+      const buffered = entries
+      entries = []
       const byId = new Map<number, EventTimingEntry[]>()
-      for (const e of entries) {
+      for (const e of buffered) {
         const id = e.interactionId
         if (!id) continue // 0 / undefined → not part of a discrete interaction
         const group = byId.get(id)

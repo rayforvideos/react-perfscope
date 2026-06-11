@@ -90,6 +90,9 @@ export function createLeakCollector(): LeakCollector {
   return {
     kind: 'leak',
     activate() {
+      // Re-activation without an intervening deactivate would overwrite (and
+      // orphan) the running interval and the unmount subscription.
+      if (active) return
       unmounted.clear()
       collected.clear()
       series.clear()

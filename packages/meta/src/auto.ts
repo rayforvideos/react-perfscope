@@ -3,6 +3,14 @@ import { installDevToolsHook } from '@react-perfscope/react'
 import { mount } from '@react-perfscope/ui'
 import { createConfiguredRecorder } from './bootstrap'
 
+// Type-only declaration so the guard below can use the bare member expression
+// `process.env.NODE_ENV` — the exact token bundlers (Vite define, webpack
+// DefinePlugin, esbuild) statically replace. Optional-chained access through
+// globalThis is not replaced and browsers have no `process` global, which
+// would make the guard a silent no-op in production bundles. The try/catch
+// absorbs the ReferenceError when no bundler and no `process` exist.
+declare const process: { env: { NODE_ENV?: string } }
+
 /**
  * Side-effect entry. Importing `react-perfscope/auto` bootstraps a Recorder
  * with the render collector and mounts the UI. Idempotent — importing twice
@@ -16,7 +24,12 @@ function bootstrap(): void {
   const g = globalThis as { __REACT_PERFSCOPE_AUTO_MOUNTED__?: boolean }
   if (g.__REACT_PERFSCOPE_AUTO_MOUNTED__) return
 
-  const env = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV
+  let env: string | undefined
+  try {
+    env = process.env.NODE_ENV
+  } catch {
+    env = undefined
+  }
   if (env === 'production') return
 
   if (typeof document === 'undefined') return

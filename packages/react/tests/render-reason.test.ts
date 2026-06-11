@@ -148,4 +148,17 @@ describe('nearestComponentAncestor', () => {
     const f = makeFiber({ return: host })
     expect(nearestComponentAncestor(f)).toBe(comp)
   })
+
+  it('recognizes forwardRef/memo parents (object type) as component ancestors', () => {
+    // forwardRef and non-simple memo fibers carry an object `type`
+    // ({ $$typeof, render }), not a function — they are still the parent
+    // component for render-reason purposes. Skipping them misclassifies
+    // parent-driven renders as 'state'.
+    const forwardRefParent = makeFiber({
+      type: { $$typeof: Symbol.for('react.forward_ref'), render: function Inner() { return null } },
+    } as unknown as Partial<MinimalFiber>)
+    const host = makeFiber({ type: 'div', return: forwardRefParent } as Partial<MinimalFiber>)
+    const f = makeFiber({ return: host })
+    expect(nearestComponentAncestor(f)).toBe(forwardRefParent)
+  })
 })

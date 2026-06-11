@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createRecorder } from '@react-perfscope/core'
 import { mount } from '../src/mount'
 
@@ -34,6 +34,24 @@ describe('mount', () => {
     const unmount = mount({ recorder })
     unmount()
     expect(document.querySelector('[data-perfscope-host]')).toBeNull()
+  })
+
+  it('ignores a second mount into the same host instead of stacking widgets', () => {
+    const recorder = createRecorder()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    cleanups.push(mount({ recorder }))
+    cleanups.push(mount({ recorder }))
+    expect(document.querySelectorAll('[data-perfscope-host]')).toHaveLength(1)
+    expect(warn).toHaveBeenCalledOnce()
+    warn.mockRestore()
+  })
+
+  it('allows mounting again after unmount', () => {
+    const recorder = createRecorder()
+    const unmount = mount({ recorder })
+    unmount()
+    cleanups.push(mount({ recorder }))
+    expect(document.querySelectorAll('[data-perfscope-host]')).toHaveLength(1)
   })
 
   it('accepts a custom host element', () => {

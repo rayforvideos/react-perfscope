@@ -117,6 +117,32 @@ describe('interaction collector', () => {
     expect(finalizeWith(c).signals.filter((s) => s.kind === 'interaction')).toHaveLength(0)
   })
 
+  it('releases buffered entries after finalize (no DOM retention across recordings)', () => {
+    const c = createInteractionCollector()
+    c.activate(() => {})
+    fire([{ name: 'click', startTime: 1000, processingStart: 1005, processingEnd: 1100, duration: 150, interactionId: 4, target: { tagName: 'BUTTON' } }])
+    c.deactivate()
+    expect(finalizeWith(c).signals.filter((s) => s.kind === 'interaction')).toHaveLength(1)
+    // Entries hold `target` DOM nodes — a second finalize must see an empty
+    // buffer, otherwise the collector pins interacted elements until the next
+    // recording starts (or forever).
+    expect(finalizeWith(c).signals.filter((s) => s.kind === 'interaction')).toHaveLength(0)
+  })
+
+  it('caps the entry buffer during very long recordings', () => {
+    const c = createInteractionCollector()
+    c.activate(() => {})
+    const batch: FakeEventTiming[] = []
+    for (let i = 1; i <= 5050; i++) {
+      batch.push({ name: 'click', startTime: i * 10, processingStart: i * 10 + 1, processingEnd: i * 10 + 5, duration: 100, interactionId: i })
+    }
+    fire(batch)
+    const out = finalizeWith(c)
+    const count = out.signals.filter((s) => s.kind === 'interaction').length
+    expect(count).toBeGreaterThan(0)
+    expect(count).toBeLessThanOrEqual(5000)
+  })
+
   it('no-ops when PerformanceObserver is unavailable', () => {
     delete (globalThis as unknown as { PerformanceObserver?: unknown }).PerformanceObserver
     const c = createInteractionCollector()

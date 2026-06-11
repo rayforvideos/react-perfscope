@@ -2,42 +2,49 @@ import { onLCP, onINP, onCLS, onFCP, onTTFB, type Metric } from 'web-vitals'
 import type { Collector, Signal, WebVitalSignal } from '../types'
 
 type VitalName = WebVitalSignal['name']
+type Sink = (name: VitalName, value: number) => void
+
+// The web-vitals library exposes no unsubscribe, and some metrics (LCP, FCP,
+// TTFB) only report once per page — so the module subscribes exactly once and
+// fans metrics out to whichever collector instances are currently active.
+// Per-instance subscriptions would both leak permanent handlers on every new
+// recorder and starve later instances of already-finalized metrics.
+let subscribed = false
+const sinks = new Set<Sink>()
+
+function ensureSubscribed(): boolean {
+  if (subscribed) return true
+  try {
+    const fan = (name: VitalName) => (metric: Metric) => {
+      for (const sink of sinks) sink(name, metric.value)
+    }
+    onLCP(fan('LCP'))
+    onINP(fan('INP'))
+    onCLS(fan('CLS'))
+    onFCP(fan('FCP'))
+    onTTFB(fan('TTFB'))
+    subscribed = true
+  } catch (err) {
+    console.warn('[react-perfscope] web-vitals collector failed to subscribe:', err)
+  }
+  return subscribed
+}
 
 export function createWebVitalsCollector(): Collector {
-  let active = false
-  let subscribed = false
   let emit: (signal: Signal) => void = () => {}
-
-  function makeHandler(name: VitalName) {
-    return (metric: Metric) => {
-      if (!active) return
-      emit({ kind: 'web-vital', name, value: metric.value })
-    }
+  const sink: Sink = (name, value) => {
+    emit({ kind: 'web-vital', name, value })
   }
 
   return {
     kind: 'web-vital',
     activate(emitFn) {
+      if (!ensureSubscribed()) return
       emit = emitFn
-      active = true
-      if (subscribed) return
-      try {
-        onLCP(makeHandler('LCP'))
-        onINP(makeHandler('INP'))
-        onCLS(makeHandler('CLS'))
-        onFCP(makeHandler('FCP'))
-        onTTFB(makeHandler('TTFB'))
-        subscribed = true
-      } catch (err) {
-        console.warn('[react-perfscope] web-vitals collector failed to subscribe:', err)
-        active = false
-      }
+      sinks.add(sink)
     },
     deactivate() {
-      // The web-vitals library does not expose unsubscribe. We keep the
-      // handlers attached and gate emission via `active`. Re-activating
-      // updates `emit` without re-subscribing.
-      active = false
+      sinks.delete(sink)
     },
   }
 }

@@ -1,8 +1,20 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup } from '@testing-library/preact'
 import type { Signal } from '@react-perfscope/core'
 import { I18nProvider, STORAGE_KEY } from '../src/i18n'
 import { InpEpisode } from '../src/inp-episode'
+
+const correlateCalls = vi.hoisted(() => ({ count: 0 }))
+vi.mock('@react-perfscope/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@react-perfscope/core')>()
+  return {
+    ...actual,
+    correlate: (...args: Parameters<typeof actual.correlate>) => {
+      correlateCalls.count++
+      return actual.correlate(...args)
+    },
+  }
+})
 
 afterEach(() => {
   cleanup()
@@ -54,5 +66,19 @@ describe('InpEpisode', () => {
     const reflowRow = container.querySelector('[data-member-kind="forced-reflow"]')!
     expect(reflowRow).toBeTruthy()
     expect(reflowRow.textContent).toContain('Counter')
+  })
+
+  it('does not recompute correlate() when re-rendered with the same signals', () => {
+    const signals: Signal[] = [interaction]
+    const make = () => (
+      <I18nProvider>
+        <InpEpisode signals={signals} />
+      </I18nProvider>
+    )
+    const { rerender } = render(make())
+    correlateCalls.count = 0
+    rerender(make())
+    rerender(make())
+    expect(correlateCalls.count).toBe(0)
   })
 })
